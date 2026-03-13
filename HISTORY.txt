@@ -1,0 +1,12 @@
+1.6: original
+1.7: add of functions to automatised the code ( take card, drop card , initialise automatically the initial point) 
+1.8: add an offset in the code for Z>0. modify the acceleration to be closer to test made in certification labs. the robot inn automatic mode take the card.
+1.8.1: add the posibillity to change the acceleration while the program is running
+1.8.3 : saving test result directly in the combination test template ! no need anymore to copy/paste data.
+	Results are directly written to the right place in the document.
+1.8.4 :
+
+1.8.5 : adaptation to the new reader supports ; test with Vivo reader disable.
+
+1.8.6: in automatic mode : the robot is taping the amount on the reader	
+	this takes into account if we set the positon 0 of the Lane5000 or Move5000
