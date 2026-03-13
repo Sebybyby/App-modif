@@ -285,7 +285,9 @@ class Robot(FFT_signal):
             self.PopUpPilotage()
 
     def RecupCoordonneeRobot(self):
+        self.tab_Coordonnee = []  # reset to prevent accumulation across calls
         fichiercsv = csv.reader(open("./Parametres/coordonneeRobot.csv", "r"))
+        next(fichiercsv, None)  # skip header row so first test starts at z=0
         for row in fichiercsv:
             self.tab_Coordonnee.append(row)
         self.size = len(self.tab_Coordonnee)

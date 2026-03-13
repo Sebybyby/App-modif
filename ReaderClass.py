@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QApplication, QMessageBox
 )
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QBrush
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 
 from InterfaceClass import Interface
 from InterfaceAfficheClass import InterfaceAffiche
@@ -37,6 +37,13 @@ class Reader(FFT_signal, Interface):
     optionListMode = ["Automatique", "Manuel"]
     optionListCard = []
     optionPositionList = ["Groupe : A", "Groupe : B", "Groupe : C", "Groupe : D", "Groupe : E"]
+
+    _sig_pass_auto    = Signal(int, int)
+    _sig_fail_auto    = Signal(int, int)
+    _sig_card_text    = Signal(str)
+    _sig_group_switch = Signal(int)
+    _sig_auto_error   = Signal()
+    _sig_auto_finished = Signal()
 
     def __init__(self):
         Interface.__init__(self)
@@ -88,7 +95,17 @@ class Reader(FFT_signal, Interface):
 
         self.robotVariable = Robot.Instance()
         self.fichier = Fichier.Instance()
+        self.currentCardLoop = 0
+        self._stopAutoFlag = False
+        self._group_switch_done = threading.Event()
+        self._sig_pass_auto.connect(self._on_pass_auto)
+        self._sig_fail_auto.connect(self._on_fail_auto)
+        self._sig_card_text.connect(self._on_card_text)
+        self._sig_group_switch.connect(self._on_group_switch)
+        self._sig_auto_error.connect(self.PopUpErreurConnexion)
+        self._sig_auto_finished.connect(self._on_auto_finished)
         self.PlayBouton()
+        self._DeposeBouton()
         self.AffichageMode()
         self.AffichageCard()
         self.AfficheReader()
@@ -277,23 +294,62 @@ class Reader(FFT_signal, Interface):
         self.GroupeA()
         self.optMode.currentTextChanged.connect(Affichage)
 
+    # ------------------------------------------------------------------
+    # DÉPOSE CARTE button
+    # ------------------------------------------------------------------
+    def _DeposeBouton(self):
+        self.deposerCarteBtn = QPushButton("DÉPOSE\nCARTE")
+        self.deposerCarteBtn.setFixedSize(140, 55)
+        self.deposerCarteBtn.setStyleSheet(
+            "QPushButton { background:#FF8800; color:#FFFFFF; font-size:13px;"
+            " font-weight:bold; border-radius:12px; }"
+            "QPushButton:hover   { background:#FFA033; }"
+            "QPushButton:pressed { background:#CC6600; }"
+        )
+        self.deposerCarteBtn.clicked.connect(self._DeposerCarte)
+        self._grid.addWidget(self.deposerCarteBtn, 14, 8, 1, 1, Qt.AlignRight | Qt.AlignVCenter)
+        self.deposerCarteBtn.hide()
+
+    def _DeposerCarte(self):
+        """Stop automation immediately and return the current card to its slot."""
+        self._stopAutoFlag = True
+        card_idx = self.currentCardLoop
+        def do_pose():
+            try:
+                self.robotVariable.PoseCarte(card_idx + 1)
+            except Exception as e:
+                print(f"Erreur dépose carte: {e}")
+        threading.Thread(target=do_pose, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Automation (non-blocking)
+    # ------------------------------------------------------------------
     def ModeAutomatique(self):
-        ErrorOccured = False
+        """Launch automatic mode in a background thread so the UI stays responsive."""
+        self._stopAutoFlag = False
         try:
             self.optMode.setEnabled(False)
             self.optCard.setEnabled(False)
             self.optGroupe.setEnabled(False)
+            self.playBouton.hide()
+            self.deposerCarteBtn.show()
         except Exception:
             pass
 
+        self.testGroupe()
+        self.GroupeA()
+        self.robotVariable.mode = 1
+        self.robotVariable.RecupCoordonneeRobot()
+        self.i = 0
+
+        threading.Thread(target=self._ModeAutomatiqueWorker, daemon=True).start()
+
+    def _ModeAutomatiqueWorker(self):
+        """Background thread: runs all robot movements for the automatic test."""
+        ErrorOccured = False
         try:
-            self.testGroupe()
-            self.GroupeA()
-            self.robotVariable.mode = 1
-            self.robotVariable.RecupCoordonneeRobot()
-            self.i = 0
-            
             for cardloop in range(0, len(self.optionListCard)):
+                self.currentCardLoop = cardloop
 
                 try:
                     self.robotVariable.RecuperationCarte(cardloop + 1)
@@ -301,105 +357,153 @@ class Reader(FFT_signal, Interface):
                 except Exception:
                     pass
 
-                try:
-                    self.optCard.setCurrentText(self.optionListCard[cardloop])
-                except Exception:
-                    pass
-                try:
-                    QApplication.processEvents()
-                except Exception:
-                    pass
+                self._sig_card_text.emit(self.optionListCard[cardloop])
                 print(f"\n DÉBUT Test de la carte {cardloop} \n")
 
                 for self.i in range(0, self.robotVariable.size):
+                    if self._stopAutoFlag:
+                        break
                     try:
                         if self.robotVariable.variabletest == 2:
                             print("robot initial")
 
-                        if self.test2 == 1:
-                            break
-                        else:
-                            self.fichier.GroupeEcriture(self.i)
-                            self.robotVariable.Conversion(self.i)
-                            if self.robotVariable.variabletest == 2:
-                                tic = time.perf_counter()
-                                self.robotVariable.MouvementRobotCarte(self.CMDAcceleration, self.CMDTemporisation)
-                                self.running = threading.Event()
-                                self.running.set()
-                                self.thread1 = threading.Thread(
-                                    target=self.robotVariable.MouvementRobotCarte,
-                                    args=(self.CMDAcceleration, self.CMDTemporisation)
-                                )
-                                self.thread2 = threading.Thread(target=self.Record_son)
-                                self.thread1.start()
-                                self.thread2.start()
-                                self.running.clear()
-                                self.thread1.join()
-                                self.thread2.join()
-                                toc = time.perf_counter()
-                                print(f"time: {toc - tic:0.4f} seconds")
-                            Trans = self.lecture_son()
+                        self.fichier.GroupeEcriture(self.i)
+                        self.robotVariable.Conversion(self.i)
 
+                        if self.robotVariable.variabletest == 2:
+                            tic = time.perf_counter()
+                            t1 = threading.Thread(
+                                target=self.robotVariable.MouvementRobotCarte,
+                                args=(self.CMDAcceleration, self.CMDTemporisation)
+                            )
+                            t2 = threading.Thread(target=self.Record_son)
+                            t1.start()
+                            t2.start()
+                            t1.join()
+                            t2.join()
+                            toc = time.perf_counter()
+                            print(f"time: {toc - tic:0.4f} seconds")
+
+                        Trans = self.lecture_son()
                         print(Trans)
                         Trans = True
-                        if Trans is True:
-                            self.Pass_Transac_Auto(cardloop)
-                            QApplication.processEvents()
+
+                        if Trans:
+                            self._sig_pass_auto.emit(self.i, cardloop)
                         else:
-                            self.Fail_Transac_Auto(cardloop)
-                            QApplication.processEvents()
-                        if self.i == 10:
-                            self.robotVariable.grippergrip()
-                            self.SuppGA()
-                            self.GroupeB()
-                        elif self.i == 23:
-                            self.robotVariable.grippergrip()
-                            self.SuppGB()
-                            self.GroupeC()
-                        elif self.i == 36:
-                            self.robotVariable.grippergrip()
-                            self.SuppGC()
-                            self.GroupeD()
-                        elif self.i == 49:
-                            self.robotVariable.grippergrip()
-                            self.SuppGD()
-                            self.GroupeE()
+                            self._sig_fail_auto.emit(self.i, cardloop)
+
+                        # Group switch (grippergrip in worker, UI update on main thread)
+                        if self.i in (10, 23, 36, 49):
+                            if self.robotVariable.variabletest == 2:
+                                self.robotVariable.grippergrip()
+                            self._group_switch_done.clear()
+                            self._sig_group_switch.emit(self.i)
+                            self._group_switch_done.wait(timeout=5.0)
                         elif self.i == 62:
                             print("END Carte")
                             break
 
+                        time.sleep(3)  # delay between test positions
+
                     except Exception as e:
-                        self.PopUpErreurConnexion()
+                        self._sig_auto_error.emit()
                         print(e)
                         ErrorOccured = True
                         break
 
-                    if self.test2 == 1:
+                    if self._stopAutoFlag:
                         break
-                
-                if ErrorOccured == True:
+
+                if ErrorOccured or self._stopAutoFlag:
                     break
 
-                print(f"FIN Test de la carte {cardloop} ")
-                QApplication.processEvents()
+                print(f"FIN Test de la carte {cardloop}")
                 time.sleep(2)
 
-
-            print("TOUS LES TESTS TERMINÉS")
-            self.test2 = 0
+            if not self._stopAutoFlag:
+                print("TOUS LES TESTS TERMINÉS")
         finally:
-            try:
-                self.optMode.setEnabled(True)
-            except Exception:
-                pass
-            try:
-                self.optCard.setEnabled(True)
-            except Exception:
-                pass
-            try:
-                self.optGroupe.setEnabled(True)
-            except Exception:
-                pass
+            self._sig_auto_finished.emit()
+
+    # ------------------------------------------------------------------
+    # Signal handlers (execute on main thread)
+    # ------------------------------------------------------------------
+    def _on_card_text(self, text):
+        try:
+            self.optCard.setCurrentText(text)
+            QApplication.processEvents()
+        except Exception:
+            pass
+
+    def _on_pass_auto(self, i, cardloop):
+        try:
+            if 0 <= i < 11:
+                self.tabGroupeA[i].setIcon(QIcon(self.photo_pix))
+                self.saveEtatGroupeA[i] = 1
+            elif 11 <= i < 24:
+                self.tabGroupeB[i - 11].setIcon(QIcon(self.photo_pix))
+                self.saveEtatGroupeB[i - 11] = 1
+            elif 24 <= i < 37:
+                self.tabGroupeC[i - 24].setIcon(QIcon(self.photo_pix))
+                self.saveEtatGroupeC[i - 24] = 1
+            elif 37 <= i < 50:
+                self.tabGroupeD[i - 37].setIcon(QIcon(self.photo_pix))
+                self.saveEtatGroupeD[i - 37] = 1
+            elif 50 <= i <= 63:
+                self.tabGroupeE[i - 50].setIcon(QIcon(self.photo_pix))
+                self.saveEtatGroupeE[i - 50] = 1
+            self.fichier.TransactionPass(i, cardloop)
+        except Exception:
+            self.PopUpErreurFichier()
+
+    def _on_fail_auto(self, i, cardloop):
+        try:
+            if 0 <= i < 11:
+                self.tabGroupeA[i].setIcon(QIcon(self.photo2_pix))
+                self.saveEtatGroupeA[i] = 2
+            elif 11 <= i < 24:
+                self.tabGroupeB[i - 11].setIcon(QIcon(self.photo2_pix))
+                self.saveEtatGroupeB[i - 11] = 2
+            elif 24 <= i < 37:
+                self.tabGroupeC[i - 24].setIcon(QIcon(self.photo2_pix))
+                self.saveEtatGroupeC[i - 24] = 2
+            elif 37 <= i < 50:
+                self.tabGroupeD[i - 37].setIcon(QIcon(self.photo2_pix))
+                self.saveEtatGroupeD[i - 37] = 2
+            elif 50 <= i <= 63:
+                self.tabGroupeE[i - 50].setIcon(QIcon(self.photo2_pix))
+                self.saveEtatGroupeE[i - 50] = 2
+            self.fichier.TransactionFail(i, cardloop)
+        except Exception:
+            self.PopUpErreurFichier()
+
+    def _on_group_switch(self, i):
+        try:
+            if i == 10:
+                self.SuppGA()
+                self.GroupeB()
+            elif i == 23:
+                self.SuppGB()
+                self.GroupeC()
+            elif i == 36:
+                self.SuppGC()
+                self.GroupeD()
+            elif i == 49:
+                self.SuppGD()
+                self.GroupeE()
+        finally:
+            self._group_switch_done.set()
+
+    def _on_auto_finished(self):
+        try:
+            self.optMode.setEnabled(True)
+            self.optCard.setEnabled(True)
+            self.optGroupe.setEnabled(True)
+            self.playBouton.show()
+            self.deposerCarteBtn.hide()
+        except Exception:
+            pass
 
     def Intercepte(self):
         reply = QMessageBox.question(
