@@ -184,6 +184,9 @@ class Reader(FFT_signal, Interface):
         self.optLecteur.blockSignals(False)
         self._grid.addWidget(self.optLecteur, 1, 6, Qt.AlignRight | Qt.AlignTop)
         self.optLecteur.currentTextChanged.connect(self._on_reader_change)
+        initial_reader = self.optLecteur.currentText()
+        if initial_reader:
+            self._on_reader_change(initial_reader)
 
     def _on_reader_change(self, name):
         from LecteurDB import get_lecteur_position
@@ -317,6 +320,7 @@ class Reader(FFT_signal, Interface):
                             break
                         else:
                             self.fichier.GroupeEcriture(self.i)
+                            self.robotVariable.Conversion(self.i)
                             if self.robotVariable.variabletest == 2:
                                 tic = time.perf_counter()
                                 self.robotVariable.MouvementRobotCarte(self.CMDAcceleration, self.CMDTemporisation)
