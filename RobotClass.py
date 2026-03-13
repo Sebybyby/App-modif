@@ -12,6 +12,7 @@ import gc
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt
 from Detection_Transaction import FFT_signal
+from Gripper import EPick
 
 
 class Robot(FFT_signal):
@@ -337,23 +338,99 @@ class Robot(FFT_signal):
 
     def PositionInitiale(self):
         self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), self.accelerationslow, self.vitesse)
+    def RecuperationCarte1(self):
+        print("je récupère la carte 1")
+        self.robot.movel((-0.5746890201638996, -0.2878173389286983,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        self.robot.movel((-0.5746890201638996, -0.2878173389286983, 0.14929612204562506, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        gripper = EPick(port="COM3")
+        time.sleep(2)
+        gripper.grip()
+        time.sleep(1)
+        gripper.close()
 
-    def RecuperationCarte(self):
-        self.robot.movel((-0.28382051337423814, -0.19387545205787496, 0.20734799008714408, -2.1298392643890276, 2.176646808556971, -0.07219957499668024), self.accelerationslow, self.vitesse)
+    def RecuperationCarte2(self):
+        print("je récupère la carte 2")
+        self.robot.movel((-0.46283148174191185, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        self.robot.movel((-0.46283148174191185, -0.289002778324476, 0.14648870998357674, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        gripper = EPick(port="COM3")
+        time.sleep(2)
+        gripper.grip()
+        time.sleep(1)
+        gripper.close()
 
-    def PoseCarte(self):
-        print("je pose la carte")
+    def RecuperationCarte3(self):
+        print("je récupère la carte 3")
+        self.robot.movel((-0.35150736034982666, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        self.robot.movel((-0.35150736034982666, -0.289002778324476, 0.14648870998357674, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        gripper = EPick(port="COM3")
+        time.sleep(2)
+        gripper.grip()
+        time.sleep(1)
+        gripper.close()
+    def RecuperationCarte(self, numCarte):
+        if numCarte == 1:
+            self.RecuperationCarte1()
+        elif numCarte == 2:
+            self.RecuperationCarte2()
+        elif numCarte == 3:
+            self.RecuperationCarte3()        
+
+    def PoseCarte1(self):
+        print("je pose la carte 1")
         if self.variabletest == 2:
-            recupPosition = self.robot.getl()
-            self.robot.movel((recupPosition[0], recupPosition[1], self.positionTopZ, self.rX, self.rY, self.rZ), self.acceleration, self.vitesse)
-            self.robot.movel((-0.5240531758800905, 0.014103079180358023, self.positionTopZ, self.rX, self.rY, self.rZ), self.acceleration, self.vitesse)
-            self.robot.movel((-0.5240531758800905, 0.014103079180358023, 0.14775452465542663, self.rX, self.rY, self.rZ), self.acceleration, self.vitesse)
-            time.sleep(self.second)
-            self.robot.movel((-0.5240531758800905, 0.014103079180358023, self.positionTopZ, self.rX, self.rY, self.rZ), self.acceleration, self.vitesse)
 
-    def Close(self):
+            self.robot.movel((-0.5746890201638996,-0.2878173389286983,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+            self.robot.movel((-0.5746890201638996, -0.2878173389286983, 0.14929612204562506, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+            time.sleep(2)
+            gripper = EPick(port="COM3")
+            gripper.release()
+            time.sleep(1)
+            gripper.close()
+        self.robot.movel((-0.5746890201638996,-0.2878173389286983,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+
+    def PoseCarte2(self):
+        print("je pose la carte 2")
+
+        self.robot.movel((-0.46283148174191185, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        self.robot.movel((-0.46283148174191185, -0.289002778324476, 0.14648870998357674, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        time.sleep(2)
+        gripper = EPick(port="COM3")
+        gripper.release()
+        time.sleep(1)
+        gripper.close()
+        self.robot.movel((-0.46283148174191185, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+
+    def PoseCarte3(self):
+        print("je pose la carte 3")
+        
+        self.robot.movel((-0.35150736034982666, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        self.robot.movel((-0.35150736034982666, -0.289002778324476, 0.14648870998357674, -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+        time.sleep(2)
+        gripper = EPick(port="COM3")
+        gripper.release()
+        time.sleep(1)
+        gripper.close()
+        self.robot.movel((-0.35150736034982666, -0.289002778324476,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
+    def PoseCarte(self, numCarte):
+        if numCarte == 1:
+            self.PoseCarte1()
+        elif numCarte == 2:
+            self.PoseCarte2()
+        elif numCarte == 3:
+            self.PoseCarte3()
+            
+    def grippergrip(self):
+        gripper = EPick("COM3")
+        gripper.grip()
+        time.sleep(1)
+        gripper.close()
+
+    def Close (self):
+        gripper = EPick("COM3")
+        gripper.release()
+        time.sleep(1)
+        gripper.close()
         self.robot.close()
-
     @staticmethod
     def Instance():
         if Robot.instance is None:

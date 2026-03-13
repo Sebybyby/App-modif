@@ -275,6 +275,7 @@ class Reader(FFT_signal, Interface):
         self.optMode.currentTextChanged.connect(Affichage)
 
     def ModeAutomatique(self):
+        ErrorOccured = False
         try:
             self.optMode.setEnabled(False)
             self.optCard.setEnabled(False)
@@ -288,7 +289,15 @@ class Reader(FFT_signal, Interface):
             self.robotVariable.mode = 1
             self.robotVariable.RecupCoordonneeRobot()
             self.i = 0
+            
             for cardloop in range(0, len(self.optionListCard)):
+
+                try:
+                    self.robotVariable.RecuperationCarte(cardloop + 1)
+                    print(f"Carte {cardloop} récupérée")
+                except Exception:
+                    pass
+
                 try:
                     self.optCard.setCurrentText(self.optionListCard[cardloop])
                 except Exception:
@@ -336,15 +345,19 @@ class Reader(FFT_signal, Interface):
                             self.Fail_Transac_Auto(cardloop)
                             QApplication.processEvents()
                         if self.i == 10:
+                            self.robotVariable.grippergrip()
                             self.SuppGA()
                             self.GroupeB()
                         elif self.i == 23:
+                            self.robotVariable.grippergrip()
                             self.SuppGB()
                             self.GroupeC()
                         elif self.i == 36:
+                            self.robotVariable.grippergrip()
                             self.SuppGC()
                             self.GroupeD()
                         elif self.i == 49:
+                            self.robotVariable.grippergrip()
                             self.SuppGD()
                             self.GroupeE()
                         elif self.i == 62:
@@ -354,14 +367,19 @@ class Reader(FFT_signal, Interface):
                     except Exception as e:
                         self.PopUpErreurConnexion()
                         print(e)
+                        ErrorOccured = True
                         break
 
                     if self.test2 == 1:
                         break
+                
+                if ErrorOccured == True:
+                    break
 
                 print(f"FIN Test de la carte {cardloop} ")
                 QApplication.processEvents()
                 time.sleep(2)
+
 
             print("TOUS LES TESTS TERMINÉS")
             self.test2 = 0
