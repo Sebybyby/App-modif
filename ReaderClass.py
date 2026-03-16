@@ -386,7 +386,7 @@ class Reader(FFT_signal, Interface):
 
                         Trans = self.lecture_son()
                         print(Trans)
-                        Trans = True
+                        # Trans = True
 
                         if Trans:
                             self._sig_pass_auto.emit(self.i, cardloop)
