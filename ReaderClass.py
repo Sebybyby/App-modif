@@ -217,6 +217,11 @@ class Reader(FFT_signal, Interface):
             self.robotVariable.coeffy,
             self.robotVariable.coeffz,
         )
+        # Synchronise la liste `position` utilisée par ReadersClass.ModeAutomatique
+        self.robotVariable.position = [
+            pos["x"], pos["y"], pos["z"],
+            pos["rX"], pos["rY"], pos["rZ"],
+        ]
         self.robotVariable.positionTopZ = pos["topZ"]
         try:
             self.fichier.EcritureLecteur(name)
