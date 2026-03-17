@@ -44,6 +44,8 @@ class Reader(FFT_signal, Interface):
     _sig_group_switch = Signal(int)
     _sig_auto_error   = Signal()
     _sig_auto_finished = Signal()
+    _sig_gripper_done       = Signal()
+    _sig_depose_manuel_done = Signal()
 
     def __init__(self):
         Interface.__init__(self)
@@ -104,6 +106,9 @@ class Reader(FFT_signal, Interface):
         self._sig_group_switch.connect(self._on_group_switch)
         self._sig_auto_error.connect(self.PopUpErreurConnexion)
         self._sig_auto_finished.connect(self._on_auto_finished)
+        self._sig_gripper_done.connect(self._on_gripper_done)
+        self._sig_depose_manuel_done.connect(self._on_depose_manuel_done)
+        self._move_thread = None
         self.PlayBouton()
         self._DeposeBouton()
         self.AffichageMode()
@@ -166,7 +171,7 @@ class Reader(FFT_signal, Interface):
                 tab[i].setIcon(QIcon(self.photo_pix))
 
     def ApparitionGroupe(self):
-        self.playBouton.hide()
+        self._set_play_bouton_gripper()
         self.optGroupe.setCurrentIndex(0)
         self.optGroupe.show()
         self.testGroupe()
@@ -300,7 +305,71 @@ class Reader(FFT_signal, Interface):
         self.optMode.currentTextChanged.connect(Affichage)
 
     # ------------------------------------------------------------------
-    # DÉPOSE CARTE button
+    # Manuel mode — GRIPPER / DÉPOSE CARTE sur playBouton
+    # ------------------------------------------------------------------
+    def _set_play_bouton_gripper(self):
+        """Mode Manuel : transforme playBouton en bouton GRIPPER CARTE."""
+        self.playBouton.setText("GRIPPER\nCARTE")
+        self.playBouton.setStyleSheet(
+            "QPushButton { background:#0088CC; color:#FFFFFF; font-size:13px;"
+            " font-weight:bold; border-radius:12px; }"
+            "QPushButton:hover   { background:#33AADD; }"
+            "QPushButton:pressed { background:#0066AA; }"
+        )
+        try:
+            self.playBouton.clicked.disconnect()
+        except Exception:
+            pass
+        self.playBouton.clicked.connect(self._GripperCarteManuel)
+        self.playBouton.setEnabled(True)
+        self.playBouton.show()
+
+    def _GripperCarteManuel(self):
+        """Grippe la carte sélectionnée (mode Manuel)."""
+        card_num = self.cardSelect + 1
+        self.playBouton.setEnabled(False)
+        def do_grip():
+            try:
+                self.robotVariable.RecuperationCarte(card_num)
+            except Exception as e:
+                print(f"Erreur gripper carte: {e}")
+            self._sig_gripper_done.emit()
+        threading.Thread(target=do_grip, daemon=True).start()
+
+    def _on_gripper_done(self):
+        """Après grip : playBouton devient DÉPOSE CARTE."""
+        self.playBouton.setText("DÉPOSE\nCARTE")
+        self.playBouton.setStyleSheet(
+            "QPushButton { background:#FF8800; color:#FFFFFF; font-size:13px;"
+            " font-weight:bold; border-radius:12px; }"
+            "QPushButton:hover   { background:#FFA033; }"
+            "QPushButton:pressed { background:#CC6600; }"
+        )
+        try:
+            self.playBouton.clicked.disconnect()
+        except Exception:
+            pass
+        self.playBouton.clicked.connect(self._DeposerCarteManuel)
+        self.playBouton.setEnabled(True)
+
+    def _DeposerCarteManuel(self):
+        """Dépose la carte tenue (mode Manuel)."""
+        card_num = self.cardSelect + 1
+        self.playBouton.setEnabled(False)
+        def do_depose():
+            try:
+                self.robotVariable.PoseCarte(card_num)
+            except Exception as e:
+                print(f"Erreur dépose carte manuel: {e}")
+            self._sig_depose_manuel_done.emit()
+        threading.Thread(target=do_depose, daemon=True).start()
+
+    def _on_depose_manuel_done(self):
+        """Après dépose : playBouton redevient GRIPPER CARTE."""
+        self._set_play_bouton_gripper()
+
+    # ------------------------------------------------------------------
+    # DÉPOSE CARTE button (mode Automatique uniquement)
     # ------------------------------------------------------------------
     def _DeposeBouton(self):
         self.deposerCarteBtn = QPushButton("DÉPOSE\nCARTE")
@@ -319,7 +388,11 @@ class Reader(FFT_signal, Interface):
         """Stop automation immediately and return the current card to its slot."""
         self._stopAutoFlag = True
         card_idx = self.currentCardLoop
+        move_thread = self._move_thread
         def do_pose():
+            # Attendre la fin du mouvement en cours pour éviter le conflit robot
+            if move_thread and move_thread.is_alive():
+                move_thread.join()
             try:
                 self.robotVariable.PoseCarte(card_idx + 1)
             except Exception as e:
@@ -385,10 +458,12 @@ class Reader(FFT_signal, Interface):
                                 args=(self._stopAutoFlag, self.CMDAcceleration, self.CMDTemporisation)
                             )
                             t2 = threading.Thread(target=self.Record_son)
+                            self._move_thread = t1
                             t1.start()
                             t2.start()
                             t1.join()
                             t2.join()
+                            self._move_thread = None
                             toc = time.perf_counter()
                             print(f"time: {toc - tic:0.4f} seconds")
 
