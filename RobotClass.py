@@ -317,7 +317,7 @@ class Robot(FFT_signal):
                 return
             else : 
                 self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), 0.2, 0.7)
-                time.sleep(4)
+                time.sleep(1)
                 self.robot.movel((self.xRobot, self.yRobot, self.zRobot, self.rX, self.rY, self.rZ), acceleration, self.vitesse)
                 time.sleep(temporisation)
                 self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), acceleration, self.vitesse)

@@ -921,12 +921,13 @@ class Reader(FFT_signal, Interface):
                     self.robotVariable.PositionInitiale()
                     self.PopUpMontant()
                     print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
-                    self.robotVariable.MouvementRobotCarte(self.CMDAcceleration, self.CMDTemporisation)
+                    self.robotVariable.MouvementRobotCarte(self._stopAutoFlag,self.CMDAcceleration, self.CMDTemporisation)
                 else:
                     self.robotVariable.Conversion(self.i)
                     self.PopUpMontant()
                     print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
 
                 self.PopUpTransaction()
-            except Exception:
-                self.PopUpErreurConnexion()
+            except Exception as e:
+                    print(f"Erreur en mode Manuel: {e}")
+                    self.PopUpErreurConnexion()
