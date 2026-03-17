@@ -308,7 +308,11 @@ class Reader(FFT_signal, Interface):
     # Manuel mode — GRIPPER / DÉPOSE CARTE sur playBouton
     # ------------------------------------------------------------------
     def _set_play_bouton_gripper(self):
-        """Mode Manuel : transforme playBouton en bouton GRIPPER CARTE."""
+        """Mode Manuel : transforme playBouton en bouton GRIPPER CARTE et déverrouille le choix de carte."""
+        try:
+            self.optCard.setEnabled(True)
+        except Exception:
+            pass
         self.playBouton.setText("GRIPPER\nCARTE")
         self.playBouton.setStyleSheet(
             "QPushButton { background:#0088CC; color:#FFFFFF; font-size:13px;"
@@ -337,7 +341,8 @@ class Reader(FFT_signal, Interface):
         threading.Thread(target=do_grip, daemon=True).start()
 
     def _on_gripper_done(self):
-        """Après grip : playBouton devient DÉPOSE CARTE."""
+        """Après grip : playBouton devient DÉPOSE CARTE et le choix de carte est verrouillé."""
+        self.optCard.setEnabled(False)
         self.playBouton.setText("DÉPOSE\nCARTE")
         self.playBouton.setStyleSheet(
             "QPushButton { background:#FF8800; color:#FFFFFF; font-size:13px;"
