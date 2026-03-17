@@ -310,12 +310,19 @@ class Robot(FFT_signal):
         else:
             self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z - 0.0002 + self.offsetZ
 
-    def MouvementRobotCarte(self, acceleration, temporisation):
-        self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), 0.2, 0.7)
-        time.sleep(2)
-        self.robot.movel((self.xRobot, self.yRobot, self.zRobot, self.rX, self.rY, self.rZ), acceleration, self.vitesse)
-        time.sleep(temporisation)
-        self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), acceleration, self.vitesse)
+    def MouvementRobotCarte(self, stop_flag, acceleration, temporisation):
+        try:
+            if stop_flag == True:
+                print("Mouvement robot interrompu."+ str(stop_flag))
+                return
+            else : 
+                self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), 0.2, 0.7)
+                time.sleep(4)
+                self.robot.movel((self.xRobot, self.yRobot, self.zRobot, self.rX, self.rY, self.rZ), acceleration, self.vitesse)
+                time.sleep(temporisation)
+                self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), acceleration, self.vitesse)
+        except Exception:
+            self.PopUpPilotage()
 
     def MouvementRobotMontant(self):
         vitesse2 = 0.5
@@ -425,12 +432,16 @@ class Robot(FFT_signal):
         gripper.grip()
         time.sleep(1)
         gripper.close()
-
-    def Close (self):
+    
+    def gripperrelease(self):
         gripper = EPick("COM3")
         gripper.release()
         time.sleep(1)
         gripper.close()
+
+    def Close (self):
+        self.gripperrelease()
+
         self.robot.close()
     @staticmethod
     def Instance():
