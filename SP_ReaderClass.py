@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 Reader pour Soft Pos — 6 groupes (A/B/C à 0°, D/E/F à 90°), 3 hauteurs chacun.
-Groupes A, B, C : rotation  0°, Z = 0 cm / 0,5 cm / 1 cm.
-Groupes D, E, F : rotation 90° (droite), Z = 0 cm / 0,5 cm / 1 cm.
+  A = même grille que GroupeA Combinatoire (11 pts), Z=0 cm,   rot=0°
+  B = même grille que GroupeB Combinatoire (13 pts), Z=0,5 cm, rot=0°
+  C = même grille que GroupeC Combinatoire (13 pts), Z=1 cm,   rot=0°
+  D = même grille que GroupeA Combinatoire (11 pts), Z=0 cm,   rot=90° droite
+  E = même grille que GroupeB Combinatoire (13 pts), Z=0,5 cm, rot=90° droite
+  F = même grille que GroupeC Combinatoire (13 pts), Z=1 cm,   rot=90° droite
 Utilise RecupCoordonneeRobotSP() + ConversionSP() (coordonneeRobot_SP.csv).
-Utilise sp_lecteurs.xlsx (SP_LecteurDB) au lieu de lecteurs.xlsx.
 Retourne au menu Soft Pos (enum=9).
 """
 from PySide6.QtWidgets import (
@@ -35,39 +38,53 @@ COMBO_STYLE = (
     " selection-background-color:#1B3A6B; selection-color:#FFFFFF; }"
 )
 
-# Positions XY des boutons — identiques pour tous les groupes (même grille)
-_SP_POSITIONS = [(6,4),(5,6),(2,4),(5,2),(7,2),(9,4),(7,6),(5,5),(5,3),(7,3),(7,5)]
-_N = len(_SP_POSITIONS)  # 11 positions par groupe
+# ── Grilles de boutons (identiques aux groupes Combinatoire correspondants) ──
+_POS_A = [                                                      # 11 positions
+    (6,4),(5,6),(2,4),(5,2),(7,2),(9,4),(7,6),(5,5),(5,3),(7,3),(7,5)
+]
+_POS_B = [                                                      # 13 positions
+    (5,4),(4,6),(3,4),(4,2),(6,2),(7,4),(6,6),(5,7),(2,6),(2,2),(5,1),(8,2),(8,6)
+]
+_POS_C = [                                                      # 13 positions
+    (7,4),(7,6),(5,5),(5,3),(7,2),(9,3),(9,5),(5,7),(1,4),(5,1),(9,1),(12,4),(9,7)
+]
 
-# Index de début de chaque groupe
-_GRP_OFFSET = {
-    'A': 0,
-    'B': _N,
-    'C': 2 * _N,
-    'D': 3 * _N,
-    'E': 4 * _N,
-    'F': 5 * _N,
+# D/E/F reprennent exactement les mêmes grilles que A/B/C
+_GRP_POS = {
+    'A': _POS_A, 'B': _POS_B, 'C': _POS_C,
+    'D': _POS_A, 'E': _POS_B, 'F': _POS_C,
 }
+_GRP_SIZE = {g: len(p) for g, p in _GRP_POS.items()}
+# A=11, B=13, C=13, D=11, E=13, F=13  → total 74
 
-# Indices de fin (dernier i du groupe) → déclenchent le changement de groupe
-_GRP_LAST = {k: v + _N - 1 for k, v in _GRP_OFFSET.items()}
-# A:10, B:21, C:32, D:43, E:54, F:65
+# Offset de départ et dernier index de chaque groupe
+_GRP_OFFSET = {}
+_offset = 0
+for _g in ('A', 'B', 'C', 'D', 'E', 'F'):
+    _GRP_OFFSET[_g] = _offset
+    _offset += _GRP_SIZE[_g]
+# A:0  B:11  C:24  D:37  E:48  F:61
+
+_GRP_LAST = {g: _GRP_OFFSET[g] + _GRP_SIZE[g] - 1 for g in _GRP_OFFSET}
+# A:10  B:23  C:36  D:47  E:60  F:73
+
+_TOTAL = _offset   # 74
 
 
 class SP_Reader(FFT_signal, Interface):
-    optionListMode = ["Automatique", "Manuel"]
-    optionListCard = []
+    optionListMode    = ["Automatique", "Manuel"]
+    optionListCard    = []
     optionPositionList = [
         "Groupe : A", "Groupe : B", "Groupe : C",
         "Groupe : D", "Groupe : E", "Groupe : F",
     ]
 
-    _sig_pass_auto     = Signal(int, int)
-    _sig_fail_auto     = Signal(int, int)
-    _sig_card_text     = Signal(str)
-    _sig_group_switch  = Signal(int)
-    _sig_auto_error    = Signal()
-    _sig_auto_finished = Signal()
+    _sig_pass_auto          = Signal(int, int)
+    _sig_fail_auto          = Signal(int, int)
+    _sig_card_text          = Signal(str)
+    _sig_group_switch       = Signal(int)
+    _sig_auto_error         = Signal()
+    _sig_auto_finished      = Signal()
     _sig_gripper_done       = Signal()
     _sig_depose_manuel_done = Signal()
 
@@ -80,23 +97,18 @@ class SP_Reader(FFT_signal, Interface):
         self.texteOffset = "null"
 
         # Tableaux de boutons et états pour chaque groupe
-        self.tabGroupeA = [];  self.saveEtatGroupeA = [0] * _N
-        self.tabGroupeB = [];  self.saveEtatGroupeB = [0] * _N
-        self.tabGroupeC = [];  self.saveEtatGroupeC = [0] * _N
-        self.tabGroupeD = [];  self.saveEtatGroupeD = [0] * _N
-        self.tabGroupeE = [];  self.saveEtatGroupeE = [0] * _N
-        self.tabGroupeF = [];  self.saveEtatGroupeF = [0] * _N
+        self.tabGroupeA = [];  self.saveEtatGroupeA = [0] * _GRP_SIZE['A']
+        self.tabGroupeB = [];  self.saveEtatGroupeB = [0] * _GRP_SIZE['B']
+        self.tabGroupeC = [];  self.saveEtatGroupeC = [0] * _GRP_SIZE['C']
+        self.tabGroupeD = [];  self.saveEtatGroupeD = [0] * _GRP_SIZE['D']
+        self.tabGroupeE = [];  self.saveEtatGroupeE = [0] * _GRP_SIZE['E']
+        self.tabGroupeF = [];  self.saveEtatGroupeF = [0] * _GRP_SIZE['F']
 
         self.cardSelect = 0
         self.saveEtatByCard = []
         for _ in self.optionListCard:
             self.saveEtatByCard.append({
-                'A': [0] * _N,
-                'B': [0] * _N,
-                'C': [0] * _N,
-                'D': [0] * _N,
-                'E': [0] * _N,
-                'F': [0] * _N,
+                g: [0] * _GRP_SIZE[g] for g in ('A', 'B', 'C', 'D', 'E', 'F')
             })
 
         # Pixmaps
@@ -148,9 +160,7 @@ class SP_Reader(FFT_signal, Interface):
         self.grid_columnconfigure((1, 2, 3, 4, 5, 6), weight=2)
         self.OffsetIHM()
 
-    # ------------------------------------------------------------------
-    # Helpers internes
-    # ------------------------------------------------------------------
+    # ── Helpers internes ────────────────────────────────────────────────
     def OffsetIHM(self):
         parts = []
         if self.robotVariable.offsetX != 0:
@@ -189,39 +199,32 @@ class SP_Reader(FFT_signal, Interface):
             elif save[i] == 1:
                 tab[i].setIcon(QIcon(self.photo_pix))
 
+    def _grp_of(self, i):
+        """Retourne la lettre du groupe ('A'…'F') pour l'index global i."""
+        for g in ('A', 'B', 'C', 'D', 'E', 'F'):
+            if _GRP_OFFSET[g] <= i <= _GRP_LAST[g]:
+                return g
+        return None
+
     def _set_icon_at(self, i, pix):
-        """Met à jour l'icône du bouton correspondant à l'index global i."""
-        if 0 <= i < _GRP_OFFSET['B']:
-            self.tabGroupeA[i - _GRP_OFFSET['A']].setIcon(QIcon(pix))
-        elif _GRP_OFFSET['B'] <= i < _GRP_OFFSET['C']:
-            self.tabGroupeB[i - _GRP_OFFSET['B']].setIcon(QIcon(pix))
-        elif _GRP_OFFSET['C'] <= i < _GRP_OFFSET['D']:
-            self.tabGroupeC[i - _GRP_OFFSET['C']].setIcon(QIcon(pix))
-        elif _GRP_OFFSET['D'] <= i < _GRP_OFFSET['E']:
-            self.tabGroupeD[i - _GRP_OFFSET['D']].setIcon(QIcon(pix))
-        elif _GRP_OFFSET['E'] <= i < _GRP_OFFSET['F']:
-            self.tabGroupeE[i - _GRP_OFFSET['E']].setIcon(QIcon(pix))
-        elif _GRP_OFFSET['F'] <= i <= _GRP_LAST['F']:
-            self.tabGroupeF[i - _GRP_OFFSET['F']].setIcon(QIcon(pix))
+        g = self._grp_of(i)
+        if g is None:
+            return
+        tab  = getattr(self, f'tabGroupe{g}')
+        idx  = i - _GRP_OFFSET[g]
+        if 0 <= idx < len(tab):
+            tab[idx].setIcon(QIcon(pix))
 
     def _save_etat_at(self, i, val):
-        """Enregistre le résultat (1=pass, 2=fail) pour l'index global i."""
-        if 0 <= i < _GRP_OFFSET['B']:
-            self.saveEtatGroupeA[i - _GRP_OFFSET['A']] = val
-        elif _GRP_OFFSET['B'] <= i < _GRP_OFFSET['C']:
-            self.saveEtatGroupeB[i - _GRP_OFFSET['B']] = val
-        elif _GRP_OFFSET['C'] <= i < _GRP_OFFSET['D']:
-            self.saveEtatGroupeC[i - _GRP_OFFSET['C']] = val
-        elif _GRP_OFFSET['D'] <= i < _GRP_OFFSET['E']:
-            self.saveEtatGroupeD[i - _GRP_OFFSET['D']] = val
-        elif _GRP_OFFSET['E'] <= i < _GRP_OFFSET['F']:
-            self.saveEtatGroupeE[i - _GRP_OFFSET['E']] = val
-        elif _GRP_OFFSET['F'] <= i <= _GRP_LAST['F']:
-            self.saveEtatGroupeF[i - _GRP_OFFSET['F']] = val
+        g = self._grp_of(i)
+        if g is None:
+            return
+        save = getattr(self, f'saveEtatGroupe{g}')
+        idx  = i - _GRP_OFFSET[g]
+        if 0 <= idx < len(save):
+            save[idx] = val
 
-    # ------------------------------------------------------------------
-    # Apparition / sélection des groupes (mode Manuel)
-    # ------------------------------------------------------------------
+    # ── Apparition / sélection des groupes ──────────────────────────────
     def ApparitionGroupe(self):
         self._set_play_bouton_gripper()
         self.optGroupe.setCurrentIndex(0)
@@ -263,6 +266,7 @@ class SP_Reader(FFT_signal, Interface):
         pos = get_sp_lecteur_position(name)
         if pos is None:
             return
+        # Position 0° (utilisée par groupes A, B, C)
         self.robotVariable._init_Position(
             pos["x"], pos["y"], pos["z"],
             pos["rX"], pos["rY"], pos["rZ"],
@@ -275,6 +279,21 @@ class SP_Reader(FFT_signal, Interface):
             pos["rX"], pos["rY"], pos["rZ"],
         ]
         self.robotVariable.positionTopZ = pos["topZ"]
+        # Position 90° — initialisée comme fallback sur la même base.
+        # L'utilisateur doit calibrer via "Paramétrage Robot SP" pour
+        # que les groupes D/E/F utilisent la vraie rotation 90°.
+        if self.robotVariable.x2 == 0.0 and self.robotVariable.y2 == 0.0:
+            self.robotVariable._init_Position2(
+                pos["x"], pos["y"], pos["z"],
+                pos["rX"], pos["rY"], pos["rZ"],
+                self.robotVariable.coeffx,
+                self.robotVariable.coeffy,
+                self.robotVariable.coeffz,
+            )
+            self.robotVariable.position2 = [
+                pos["x"], pos["y"], pos["z"],
+                pos["rX"], pos["rY"], pos["rZ"],
+            ]
         try:
             self.fichier.EcritureLecteur(name)
         except Exception:
@@ -290,24 +309,21 @@ class SP_Reader(FFT_signal, Interface):
         self.optCard.currentTextChanged.connect(self.on_card_change)
 
     def testGroupe(self):
-        if   self.gp == 0: self.SuppGA()
-        elif self.gp == 1: self.SuppGB()
-        elif self.gp == 2: self.SuppGC()
-        elif self.gp == 3: self.SuppGD()
-        elif self.gp == 4: self.SuppGE()
-        elif self.gp == 5: self.SuppGF()
+        handlers = {
+            0: self.SuppGA, 1: self.SuppGB, 2: self.SuppGC,
+            3: self.SuppGD, 4: self.SuppGE, 5: self.SuppGF,
+        }
+        if self.gp in handlers:
+            handlers[self.gp]()
 
     def on_card_change(self, *args):
         try:
             selected_card = self.optCard.currentText()
             card_index = self.optionListCard.index(selected_card)
             self.cardSelect = card_index
-            self.saveEtatGroupeA = self.saveEtatByCard[card_index]['A']
-            self.saveEtatGroupeB = self.saveEtatByCard[card_index]['B']
-            self.saveEtatGroupeC = self.saveEtatByCard[card_index]['C']
-            self.saveEtatGroupeD = self.saveEtatByCard[card_index]['D']
-            self.saveEtatGroupeE = self.saveEtatByCard[card_index]['E']
-            self.saveEtatGroupeF = self.saveEtatByCard[card_index]['F']
+            for g in ('A', 'B', 'C', 'D', 'E', 'F'):
+                setattr(self, f'saveEtatGroupe{g}',
+                        self.saveEtatByCard[card_index][g])
             print(f"Carte sélectionnée: {selected_card} (index: {card_index})")
             try:
                 self.testGroupe()
@@ -334,22 +350,18 @@ class SP_Reader(FFT_signal, Interface):
 
         def Affichage(text):
             if text == "Automatique":
-                print("auto")
                 self.PlayBouton()
                 self.testGroupe()
                 self.GroupeA()
                 self.optGroupe.hide()
             elif text == "Manuel":
-                print("manuel")
                 self.manuelActive = True
                 self.ApparitionGroupe()
 
         self.GroupeA()
         self.optMode.currentTextChanged.connect(Affichage)
 
-    # ------------------------------------------------------------------
-    # Mode Manuel — GRIPPER / DÉPOSE CARTE
-    # ------------------------------------------------------------------
+    # ── Mode Manuel — GRIPPER / DÉPOSE ──────────────────────────────────
     def _set_play_bouton_gripper(self):
         try:
             self.optCard.setEnabled(True)
@@ -415,9 +427,7 @@ class SP_Reader(FFT_signal, Interface):
     def _on_depose_manuel_done(self):
         self._set_play_bouton_gripper()
 
-    # ------------------------------------------------------------------
-    # Bouton DÉPOSE CARTE (mode Automatique uniquement)
-    # ------------------------------------------------------------------
+    # ── Bouton DÉPOSE CARTE (mode Automatique) ───────────────────────────
     def _DeposeBouton(self):
         self.deposerCarteBtn = QPushButton("DÉPOSE\nCARTE")
         self.deposerCarteBtn.setFixedSize(140, 55)
@@ -444,9 +454,7 @@ class SP_Reader(FFT_signal, Interface):
                 print(f"Erreur dépose carte: {e}")
         threading.Thread(target=do_pose, daemon=True).start()
 
-    # ------------------------------------------------------------------
-    # Mode Automatique
-    # ------------------------------------------------------------------
+    # ── Mode Automatique ─────────────────────────────────────────────────
     def ModeAutomatique(self):
         self._stopAutoFlag = False
         try:
@@ -457,22 +465,19 @@ class SP_Reader(FFT_signal, Interface):
             self.deposerCarteBtn.show()
         except Exception:
             pass
-
         self.testGroupe()
         self.GroupeA()
         self.robotVariable.mode = 1
         self.robotVariable.RecupCoordonneeRobotSP()
         self.i = 0
-
         threading.Thread(target=self._ModeAutomatiqueWorker, daemon=True).start()
 
     def _ModeAutomatiqueWorker(self):
-        """Thread de fond : exécute tous les mouvements du test automatique Soft Pos."""
+        """Thread de fond : test automatique Soft Pos (74 positions, 6 groupes)."""
         ErrorOccured = False
         try:
             for cardloop in range(0, len(self.optionListCard)):
                 self.currentCardLoop = cardloop
-
                 try:
                     if self._stopAutoFlag:
                         break
@@ -488,38 +493,31 @@ class SP_Reader(FFT_signal, Interface):
                     if self._stopAutoFlag:
                         break
                     try:
-                        if self.robotVariable.variabletest == 2:
-                            print("robot initial")
-
                         self.fichier.GroupeEcriture(self.i)
                         self.robotVariable.ConversionSP(self.i)
 
                         if self.robotVariable.variabletest == 2:
                             tic = time.perf_counter()
-
                             t1 = threading.Thread(
                                 target=self.robotVariable.MouvementRobotCarte,
                                 args=(self._stopAutoFlag, self.CMDAcceleration, self.CMDTemporisation)
                             )
                             t2 = threading.Thread(target=self.Record_son)
                             self._move_thread = t1
-                            t1.start()
-                            t2.start()
-                            t1.join()
-                            t2.join()
+                            t1.start(); t2.start()
+                            t1.join();  t2.join()
                             self._move_thread = None
                             toc = time.perf_counter()
                             print(f"time: {toc - tic:0.4f} seconds")
 
                         Trans = self.lecture_son()
                         print(Trans)
-
                         if Trans:
                             self._sig_pass_auto.emit(self.i, cardloop)
                         else:
                             self._sig_fail_auto.emit(self.i, cardloop)
 
-                        # Changements de groupe (fin de groupe A→B→C→D→E→F)
+                        # Changements de groupe A→B→C→D→E (F est le dernier)
                         if self.i in (_GRP_LAST['A'], _GRP_LAST['B'], _GRP_LAST['C'],
                                       _GRP_LAST['D'], _GRP_LAST['E']):
                             self._group_switch_done.clear()
@@ -551,9 +549,7 @@ class SP_Reader(FFT_signal, Interface):
         finally:
             self._sig_auto_finished.emit()
 
-    # ------------------------------------------------------------------
-    # Handlers de signaux (thread principal)
-    # ------------------------------------------------------------------
+    # ── Handlers de signaux (thread principal) ───────────────────────────
     def _on_card_text(self, text):
         try:
             self.optCard.setCurrentText(text)
@@ -597,9 +593,7 @@ class SP_Reader(FFT_signal, Interface):
         except Exception:
             pass
 
-    # ------------------------------------------------------------------
-    # Pop-ups
-    # ------------------------------------------------------------------
+    # ── Pop-ups ──────────────────────────────────────────────────────────
     def Intercepte(self):
         reply = QMessageBox.question(
             self, "Notice", "Are you sure to close the transaction",
@@ -687,58 +681,50 @@ class SP_Reader(FFT_signal, Interface):
         self.choix = 0 if confirmed else 1
         return self.choix
 
-    # ------------------------------------------------------------------
-    # Zones Accélération / Temporisation
-    # ------------------------------------------------------------------
+    # ── Accélération / Temporisation ─────────────────────────────────────
     def ZoneAcceleration(self):
         FRAME = "QFrame { background:#1B3A6B; border:2px solid #AAAAAA; border-radius:6px; }"
         LBL   = "color:#DDDDDD; font-size:11px; font-weight:bold; background:#1B3A6B; border:none;"
         INP   = "color:#000000; font-size:14px; font-weight:bold; background:#FFFFFF; border-radius:4px;"
-        BTN   = "QPushButton { color:#000000; background:#FFFF00; font-size:12px; font-weight:bold; padding:6px 10px; border-radius:5px; } QPushButton:hover { background:#FFE033; } QPushButton:pressed { background:#CCBB00; }"
-        accel_frame = QFrame()
-        accel_frame.setStyleSheet(FRAME)
-        a_layout = QHBoxLayout(accel_frame)
-        a_layout.setContentsMargins(8, 4, 8, 4)
-        self.AccelValue = QLabel("Vitesse descente\n(m/s²) :")
-        self.AccelValue.setStyleSheet(LBL)
-        self.AccelEntree = QLineEdit()
-        self.AccelEntree.setFixedWidth(45)
-        self.AccelEntree.setText("8")
-        self.AccelEntree.setStyleSheet(INP)
-        self.boutonVitesse = QPushButton("OK")
-        self.boutonVitesse.setStyleSheet(BTN)
+        BTN   = ("QPushButton { color:#000000; background:#FFFF00; font-size:12px; font-weight:bold;"
+                 " padding:6px 10px; border-radius:5px; }"
+                 " QPushButton:hover { background:#FFE033; } QPushButton:pressed { background:#CCBB00; }")
+        accel_frame = QFrame(); accel_frame.setStyleSheet(FRAME)
+        a_layout = QHBoxLayout(accel_frame); a_layout.setContentsMargins(8, 4, 8, 4)
+        self.AccelValue = QLabel("Vitesse descente\n(m/s²) :"); self.AccelValue.setStyleSheet(LBL)
+        self.AccelEntree = QLineEdit(); self.AccelEntree.setFixedWidth(45)
+        self.AccelEntree.setText("8"); self.AccelEntree.setStyleSheet(INP)
+        self.boutonVitesse = QPushButton("OK"); self.boutonVitesse.setStyleSheet(BTN)
         self.boutonVitesse.clicked.connect(self.Acceleration)
-        a_layout.addWidget(self.AccelValue)
-        a_layout.addWidget(self.AccelEntree)
-        a_layout.addWidget(self.boutonVitesse)
+        a_layout.addWidget(self.AccelValue); a_layout.addWidget(self.AccelEntree); a_layout.addWidget(self.boutonVitesse)
         self._grid.addWidget(accel_frame, 14, 5, 1, 3, Qt.AlignVCenter)
 
     def ZoneTemporisation(self):
         FRAME = "QFrame { background:#1B3A6B; border:2px solid #AAAAAA; border-radius:6px; }"
         LBL   = "color:#DDDDDD; font-size:11px; font-weight:bold; background:#1B3A6B; border:none;"
         INP   = "color:#000000; font-size:14px; font-weight:bold; background:#FFFFFF; border-radius:4px;"
-        BTN   = "QPushButton { color:#000000; background:#FFFF00; font-size:12px; font-weight:bold; padding:6px 10px; border-radius:5px; } QPushButton:hover { background:#FFE033; } QPushButton:pressed { background:#CCBB00; }"
-        tempo_frame = QFrame()
-        tempo_frame.setStyleSheet(FRAME)
-        t_layout = QHBoxLayout(tempo_frame)
-        t_layout.setContentsMargins(8, 4, 8, 4)
-        self.TemporisationValue = QLabel("Temps dans\nle champ (s) :")
-        self.TemporisationValue.setStyleSheet(LBL)
-        self.TempoEntree = QLineEdit()
-        self.TempoEntree.setFixedWidth(45)
-        self.TempoEntree.setText("1")
-        self.TempoEntree.setStyleSheet(INP)
-        self.boutonTempo = QPushButton("OK")
-        self.boutonTempo.setStyleSheet(BTN)
+        BTN   = ("QPushButton { color:#000000; background:#FFFF00; font-size:12px; font-weight:bold;"
+                 " padding:6px 10px; border-radius:5px; }"
+                 " QPushButton:hover { background:#FFE033; } QPushButton:pressed { background:#CCBB00; }")
+        tempo_frame = QFrame(); tempo_frame.setStyleSheet(FRAME)
+        t_layout = QHBoxLayout(tempo_frame); t_layout.setContentsMargins(8, 4, 8, 4)
+        self.TemporisationValue = QLabel("Temps dans\nle champ (s) :"); self.TemporisationValue.setStyleSheet(LBL)
+        self.TempoEntree = QLineEdit(); self.TempoEntree.setFixedWidth(45)
+        self.TempoEntree.setText("1"); self.TempoEntree.setStyleSheet(INP)
+        self.boutonTempo = QPushButton("OK"); self.boutonTempo.setStyleSheet(BTN)
         self.boutonTempo.clicked.connect(self.Temporisation)
-        t_layout.addWidget(self.TemporisationValue)
-        t_layout.addWidget(self.TempoEntree)
-        t_layout.addWidget(self.boutonTempo)
+        t_layout.addWidget(self.TemporisationValue); t_layout.addWidget(self.TempoEntree); t_layout.addWidget(self.boutonTempo)
         self._grid.addWidget(tempo_frame, 14, 2, 1, 3, Qt.AlignVCenter)
 
-    # ------------------------------------------------------------------
-    # Boutons de navigation
-    # ------------------------------------------------------------------
+    def Acceleration(self):
+        self.CMDAcceleration = int(self.AccelEntree.text())
+        if self.CMDAcceleration > 8:
+            self.CMDAcceleration = 8
+
+    def Temporisation(self):
+        self.CMDTemporisation = int(self.TempoEntree.text())
+
+    # ── Boutons de navigation ─────────────────────────────────────────────
     def RetourMenu(self):
         self.windowPlace = self.geometry()
         self.destroy()
@@ -748,8 +734,7 @@ class SP_Reader(FFT_signal, Interface):
             self.robotVariable.gripperrelease()
         except Exception as e:
             print(f"Erreur lors de l'arrêt des threads: {e}")
-        self.enum = 9  # MenuSoftPos
-        print(self.enum)
+        self.enum = 9
 
     def RetourBouton(self):
         self.retourBouton = QPushButton("RETOUR")
@@ -773,34 +758,22 @@ class SP_Reader(FFT_signal, Interface):
         self.playBouton.clicked.connect(self.ModeAutomatique)
         self._grid.addWidget(self.playBouton, 14, 8, 1, 1, Qt.AlignRight | Qt.AlignVCenter)
 
-    def Acceleration(self):
-        self.CMDAcceleration = int(self.AccelEntree.text())
-        if self.CMDAcceleration > 8:
-            self.CMDAcceleration = 8
-        print("valeur de l'accélération':" + self.AccelEntree.text() + " m/s²")
-
-    def Temporisation(self):
-        self.CMDTemporisation = int(self.TempoEntree.text())
-        print("valeur de temporisation:" + self.TempoEntree.text() + " s")
-
-    # ------------------------------------------------------------------
-    # Affichage des groupes (même grille XY pour tous les groupes)
-    # ------------------------------------------------------------------
-    def _make_groupe(self, tab, save, gp_idx, i_offset):
+    # ── Affichage des groupes ─────────────────────────────────────────────
+    def _make_groupe(self, grp_key, tab, save, gp_idx):
         tab.clear()
         self.gp = gp_idx
-        for idx, (row, col) in enumerate(_SP_POSITIONS):
-            btn = self._make_status_btn(i_offset + idx)
+        for idx, (row, col) in enumerate(_GRP_POS[grp_key]):
+            btn = self._make_status_btn(_GRP_OFFSET[grp_key] + idx)
             tab.append(btn)
             self._grid.addWidget(btn, row, col, Qt.AlignLeft | Qt.AlignTop)
         self._update_group_icons(tab, save)
 
-    def GroupeA(self): self._make_groupe(self.tabGroupeA, self.saveEtatGroupeA, 0, _GRP_OFFSET['A'])
-    def GroupeB(self): self._make_groupe(self.tabGroupeB, self.saveEtatGroupeB, 1, _GRP_OFFSET['B'])
-    def GroupeC(self): self._make_groupe(self.tabGroupeC, self.saveEtatGroupeC, 2, _GRP_OFFSET['C'])
-    def GroupeD(self): self._make_groupe(self.tabGroupeD, self.saveEtatGroupeD, 3, _GRP_OFFSET['D'])
-    def GroupeE(self): self._make_groupe(self.tabGroupeE, self.saveEtatGroupeE, 4, _GRP_OFFSET['E'])
-    def GroupeF(self): self._make_groupe(self.tabGroupeF, self.saveEtatGroupeF, 5, _GRP_OFFSET['F'])
+    def GroupeA(self): self._make_groupe('A', self.tabGroupeA, self.saveEtatGroupeA, 0)
+    def GroupeB(self): self._make_groupe('B', self.tabGroupeB, self.saveEtatGroupeB, 1)
+    def GroupeC(self): self._make_groupe('C', self.tabGroupeC, self.saveEtatGroupeC, 2)
+    def GroupeD(self): self._make_groupe('D', self.tabGroupeD, self.saveEtatGroupeD, 3)
+    def GroupeE(self): self._make_groupe('E', self.tabGroupeE, self.saveEtatGroupeE, 4)
+    def GroupeF(self): self._make_groupe('F', self.tabGroupeF, self.saveEtatGroupeF, 5)
 
     def SuppGA(self):
         for btn in self.tabGroupeA: btn.hide()
@@ -820,9 +793,7 @@ class SP_Reader(FFT_signal, Interface):
     def SuppGF(self):
         for btn in self.tabGroupeF: btn.hide()
 
-    # ------------------------------------------------------------------
-    # Mode Manuel — clic sur un bouton
-    # ------------------------------------------------------------------
+    # ── Mode Manuel — clic sur un bouton ─────────────────────────────────
     def FunctionManuel(self, number):
         if self.manuelActive is True:
             try:
