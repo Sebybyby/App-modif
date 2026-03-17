@@ -329,27 +329,74 @@ class Robot(FFT_signal):
 
     def ConversionSP(self, position):
         """Conversion Soft Pos : Z monte (positif = au-dessus du téléphone).
-        Positions  0-36 → Groupes A/B/C (11+13+13), rotation 0°  (position1).
-        Positions 37-73 → Groupes D/E/F (11+13+13), rotation 90° (position2).
+        Positions  0-36 → Groupes A/B/C (11+13+13), rotation 0°.
+        Positions 37-73 → Groupes D/E/F (11+13+13), rotation 90° calculée automatiquement.
+        X/Y/Z identiques pour A/B/C et D/E/F — seule la rotation change.
         """
         yCart = float(self.tab_Coordonnee[position][2]) * (math.cos(float(self.tab_Coordonnee[position][3]) * math.pi / 180))
         xCart = float(self.tab_Coordonnee[position][2]) * (-1 * (math.sin(float(self.tab_Coordonnee[position][3]) * math.pi / 180)))
-        if position < 37:  # Groupes A, B, C — rotation 0°
-            self.xRobot = 0.001 * yCart + self.x + self.offsetX
-            self.yRobot = -0.001 * xCart + self.y + self.offsetY
-            self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z + self.offsetZ
+        self.xRobot = 0.001 * yCart + self.x + self.offsetX
+        self.yRobot = -0.001 * xCart + self.y + self.offsetY
+        self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z + self.offsetZ
+        self.positionTopZ = self.z + 0.2
+        if position < 37:  # Groupes A, B, C — rotation 0° (position calibrée)
             self.rX = self.position[3]
             self.rY = self.position[4]
             self.rZ = self.position[5]
-            self.positionTopZ = self.z + 0.2
-        else:  # Groupes D, E, F — rotation 90° droite
-            self.xRobot = 0.001 * yCart + self.x2 + self.offsetX
-            self.yRobot = -0.001 * xCart + self.y2 + self.offsetY
-            self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z2 + self.offsetZ
-            self.rX = self.rX2
-            self.rY = self.rY2
-            self.rZ = self.rZ2
-            self.positionTopZ = self.z2 + 0.2
+        else:  # Groupes D, E, F — rotation 90° droite calculée par quaternion
+            rX90, rY90, rZ90 = self._compute_rotation_90z_tool(
+                self.position[3], self.position[4], self.position[5]
+            )
+            self.rX = rX90
+            self.rY = rY90
+            self.rZ = rZ90
+
+    @staticmethod
+    def _compute_rotation_90z_tool(rX, rY, rZ):
+        """Calcule le vecteur rotation après 90° vers la droite autour de l'axe Z outil.
+        Utilise des quaternions pour éviter les singularités (UR5 rY ≈ ±π).
+        Rotation dans le référentiel outil : q_new = q_current * q_Rz(-90°).
+        """
+        angle = math.sqrt(rX**2 + rY**2 + rZ**2)
+        if angle < 1e-10:
+            return [0.0, 0.0, -math.pi / 2]
+
+        # Axis-angle → quaternion [w, x, y, z]
+        s = math.sin(angle / 2.0) / angle
+        qw = math.cos(angle / 2.0)
+        qx = rX * s
+        qy = rY * s
+        qz = rZ * s
+
+        # Quaternion pour -90° autour de Z (droite = sens horaire vu du dessus)
+        # q_rz = [cos(-45°), 0, 0, sin(-45°)] = [√2/2, 0, 0, -√2/2]
+        sq2 = math.sqrt(2.0) / 2.0
+        rw, rx, ry, rz = sq2, 0.0, 0.0, -sq2
+
+        # Produit quaternion : q_new = q * q_rz  (rotation dans le référentiel outil)
+        nw = qw*rw - qx*rx - qy*ry - qz*rz
+        nx = qw*rx + qx*rw + qy*rz - qz*ry
+        ny = qw*ry - qx*rz + qy*rw + qz*rx
+        nz = qw*rz + qx*ry - qy*rx + qz*rw
+
+        # Normalisation
+        norm = math.sqrt(nw**2 + nx**2 + ny**2 + nz**2)
+        if norm < 1e-10:
+            return [0.0, 0.0, 0.0]
+        nw /= norm; nx /= norm; ny /= norm; nz /= norm
+
+        # Forme canonique : w >= 0
+        if nw < 0:
+            nw = -nw; nx = -nx; ny = -ny; nz = -nz
+
+        # Quaternion → axis-angle
+        angle_new = 2.0 * math.acos(max(-1.0, min(1.0, nw)))
+        s_new = math.sin(angle_new / 2.0)
+        if abs(s_new) < 1e-10:
+            return [0.0, 0.0, 0.0]
+        return [nx / s_new * angle_new,
+                ny / s_new * angle_new,
+                nz / s_new * angle_new]
 
     def MouvementRobotCarte(self, stop_flag, acceleration, temporisation):
         try:
