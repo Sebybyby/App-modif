@@ -311,6 +311,8 @@ class Reader(FFT_signal, Interface):
         """Mode Manuel : transforme playBouton en bouton GRIPPER CARTE et déverrouille le choix de carte."""
         try:
             self.optCard.setEnabled(True)
+            self.optMode.setEnabled(True)
+            self.optLecteur.setEnabled(True)
         except Exception:
             pass
         self.playBouton.setText("GRIPPER\nCARTE")
@@ -343,6 +345,8 @@ class Reader(FFT_signal, Interface):
     def _on_gripper_done(self):
         """Après grip : playBouton devient DÉPOSE CARTE et le choix de carte est verrouillé."""
         self.optCard.setEnabled(False)
+        self.optMode.setEnabled(False)
+        self.optLecteur.setEnabled(False)
         self.playBouton.setText("DÉPOSE\nCARTE")
         self.playBouton.setStyleSheet(
             "QPushButton { background:#FF8800; color:#FFFFFF; font-size:13px;"
@@ -435,6 +439,8 @@ class Reader(FFT_signal, Interface):
                 self.currentCardLoop = cardloop
 
                 try:
+                    if self._stopAutoFlag:
+                        break
                     self.robotVariable.RecuperationCarte(cardloop + 1)
                     print(f"Carte {cardloop} récupérée")
                 except Exception:
@@ -455,9 +461,10 @@ class Reader(FFT_signal, Interface):
 
                         if self.robotVariable.variabletest == 2:
                             tic = time.perf_counter()
+
                             t1 = threading.Thread(
                                 target=self.robotVariable.MouvementRobotCarte,
-                                args=(self.CMDAcceleration, self.CMDTemporisation)
+                                args=(self._stopAutoFlag, self.CMDAcceleration, self.CMDTemporisation)
                             )
                             t2 = threading.Thread(target=self.Record_son)
                             self._move_thread = t1
@@ -471,7 +478,7 @@ class Reader(FFT_signal, Interface):
 
                         Trans = self.lecture_son()
                         print(Trans)
-                        Trans = True
+                        # Trans = True
 
                         if Trans:
                             self._sig_pass_auto.emit(self.i, cardloop)
@@ -635,24 +642,24 @@ class Reader(FFT_signal, Interface):
         layout.addLayout(btn_layout)
         layout.addWidget(bexit, alignment=Qt.AlignCenter)
         self._trans_dialog = dialog
-        bpass.clicked.connect(lambda: self._do_pass_transaction(dialog))
-        bfail.clicked.connect(lambda: self._do_fail_transaction(dialog))
+        bpass.clicked.connect(lambda: self._do_pass_transaction(dialog, self.cardSelect))
+        bfail.clicked.connect(lambda: self._do_fail_transaction(dialog, self.cardSelect))
         bexit.clicked.connect(lambda: self._intercepte_dialog(dialog))
         dialog.exec()
 
-    def _do_pass_transaction(self, dialog):
+    def _do_pass_transaction(self, dialog,cardloop):
         dialog.accept()
-        self.PassTransaction()
+        self.PassTransaction(cardloop)
 
-    def _do_fail_transaction(self, dialog):
+    def _do_fail_transaction(self, dialog, cardloop):
         dialog.accept()
-        self.FailTransaction()
+        self.FailTransaction(cardloop)
 
     def _intercepte_dialog(self, dialog):
         dialog.accept()
         self.Intercepte()
 
-    def PassTransaction(self):
+    def PassTransaction(self, cardloop):
         gc.collect()
         try:
             if self.i >= 0 and self.i < 11:
@@ -670,7 +677,7 @@ class Reader(FFT_signal, Interface):
             elif self.i >= 50 and self.i <= 63:
                 self.tabGroupeE[self.i - 50].setIcon(QIcon(self.photo_pix))
                 self.saveEtatGroupeE[self.i - 50] = 1
-            self.fichier.TransactionPass(self.i)
+            self.fichier.TransactionPass(self.i,cardloop)
         except Exception:
             self.PopUpErreurFichier()
 
@@ -696,7 +703,7 @@ class Reader(FFT_signal, Interface):
         except Exception:
             self.PopUpErreurFichier()
 
-    def FailTransaction(self):
+    def FailTransaction(self, cardloop):
         gc.collect()
         try:
             if self.i >= 0 and self.i < 11:
@@ -714,7 +721,7 @@ class Reader(FFT_signal, Interface):
             elif self.i >= 50 and self.i <= 63:
                 self.tabGroupeE[self.i - 50].setIcon(QIcon(self.photo2_pix))
                 self.saveEtatGroupeE[self.i - 50] = 2
-            self.fichier.TransactionFail(self.i)
+            self.fichier.TransactionFail(self.i, cardloop)
         except Exception:
             self.PopUpErreurFichier()
 
@@ -796,8 +803,11 @@ class Reader(FFT_signal, Interface):
     def RetourMenu(self):
         self.windowPlace = self.geometry()
         self.destroy()
+
         try:
             gc.collect()
+            self._stopAutoFlag = True
+            self.robotVariable.gripperrelease()
         except Exception as e:
             print(f"Erreur lors de l'arrêt des threads: {e}")
         self.enum = 0
@@ -920,12 +930,13 @@ class Reader(FFT_signal, Interface):
                     self.robotVariable.PositionInitiale()
                     self.PopUpMontant()
                     print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
-                    self.robotVariable.MouvementRobotCarte(self.CMDAcceleration, self.CMDTemporisation)
+                    self.robotVariable.MouvementRobotCarte(self._stopAutoFlag,self.CMDAcceleration, self.CMDTemporisation)
                 else:
                     self.robotVariable.Conversion(self.i)
                     self.PopUpMontant()
                     print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
 
                 self.PopUpTransaction()
-            except Exception:
-                self.PopUpErreurConnexion()
+            except Exception as e:
+                    print(f"Erreur en mode Manuel: {e}")
+                    self.PopUpErreurConnexion()
