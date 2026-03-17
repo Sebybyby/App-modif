@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Gestion de la base de données des lecteurs (lecteurs.xlsx).
+Gestion de la base de données des lecteurs Combinatoire (lecteurs.xlsx).
 Chaque lecteur a un nom et sa position 0 : x, y, z, rX, rY, rZ, topZ.
-Les coordonnées sont extraites des méthodes Position0_XXX de RobotClass.py.
-Tous les points de test sont calculés relativement à ce premier point (voir Conversion()).
+Seuls les lecteurs matériels (Lane 5000, Move 5000) sont gérés ici.
+Les lecteurs Soft Pos (téléphones) sont dans SP_LecteurDB.py / sp_lecteurs.xlsx.
 """
 import os
 import openpyxl
@@ -15,8 +15,7 @@ HEADERS = ["Nom", "x", "y", "z", "rX", "rY", "rZ", "topZ"]
 _TOP_Z_LANE = 0.399821937815115    # positionTopZLane5000
 _TOP_Z_MOVE = 0.5025886995214306   # positionTopZmove5000
 
-# Premier point de chaque lecteur — source : méthodes Position0_XXX de RobotClass.py
-# Colonnes : Nom, x, y, z, rX, rY, rZ, topZ
+# Lecteurs Combinatoire uniquement
 DEFAULT_LECTEURS = [
     ["Lane 5000",
      -0.4547756256699072,   0.09449841328596138,  0.21046844075096408,
@@ -26,35 +25,17 @@ DEFAULT_LECTEURS = [
      -0.4540141593144729,   0.031580682143320125, 0.30871004420187936,
      -2.2037218160115697,   2.2372876043326744,   0.01616534026994103,
      _TOP_Z_MOVE],
-    ["iPhone SE",
-     -0.4535050711611319,   0.09746050997975206,  0.1628971910211756,
-     -2.231798624387687,    2.2085533882615613,   0.012635744971039179,
-     _TOP_Z_LANE],
-    ["iPhone 13",
-     -0.4530451975084202,   0.09109465497697321,  0.1623321775801928,
-     -2.231812791929215,    2.20836277121875,     0.012548477860910717,
-     _TOP_Z_LANE],
-    ["Samsung A34",
-     -0.43754267515397605,  0.05571605275012892,  0.16325538725581454,
-     -2.2287899201722428,   2.211582666496985,    0.012739503012607888,
-     _TOP_Z_LANE],
-    ["Samsung S23",
-     -0.44212966228298567,  0.0018719860483787305, 0.16401135259168176,
-     -2.2120128473028395,   2.2282316325468523,   0.012707245680119298,
-     _TOP_Z_LANE],
-    ["Samsung A15",
-     -0.4386549445573203,   0.0774494613480611,   0.16674799989871197,
-     -2.2162006686819176,   2.22500596381785,     0.016132300618970388,
-     _TOP_Z_LANE],
-    ["Redmi 13C",
-     -0.4342770051859024,   0.07549404718371988,  0.1650135223170027,
-      2.2089024541654294,  -2.2273135015530854,   0.0029808527696273787,
-     _TOP_Z_LANE],
 ]
+
+_COMBINATOIRE_NAMES = {row[0] for row in DEFAULT_LECTEURS}
 
 
 def _ensure_file():
-    """Crée lecteurs.xlsx s'il n'existe pas, puis ajoute les lecteurs manquants."""
+    """Crée lecteurs.xlsx s'il n'existe pas.
+    Si le fichier existe, ajoute les lecteurs manquants et supprime
+    les entrées qui n'appartiennent pas au Combinatoire (ex : téléphones
+    qui se trouvaient dans l'ancien fichier unique).
+    """
     os.makedirs("./Parametres", exist_ok=True)
     if not os.path.exists(LECTEURS_FILE):
         wb = openpyxl.Workbook()
@@ -66,21 +47,46 @@ def _ensure_file():
         wb.save(LECTEURS_FILE)
         return
 
-    # Fichier existant : ajouter les lecteurs par défaut manquants
     wb = openpyxl.load_workbook(LECTEURS_FILE)
     ws = wb.active
     existing = {row[0] for row in ws.iter_rows(min_row=2, values_only=True) if row[0]}
     changed = False
+
+    # Supprimer les lignes qui ne font pas partie du Combinatoire
+    rows_to_keep = [ws[1]]  # header
+    for row in ws.iter_rows(min_row=2):
+        nom = row[0].value
+        if nom and nom in _COMBINATOIRE_NAMES:
+            rows_to_keep.append(row)
+        elif nom:
+            changed = True  # ligne supprimée
+
+    if changed:
+        # Réécrire la feuille proprement
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.value = None
+        for dest_row, src_row in enumerate(rows_to_keep[1:], start=2):
+            for col_idx, cell in enumerate(src_row, start=1):
+                ws.cell(row=dest_row, column=col_idx).value = cell.value
+
+    # Ajouter les lecteurs par défaut manquants
+    existing_after = {
+        ws.cell(row=r, column=1).value
+        for r in range(2, ws.max_row + 1)
+        if ws.cell(row=r, column=1).value
+    }
     for row in DEFAULT_LECTEURS:
-        if row[0] not in existing:
+        if row[0] not in existing_after:
             ws.append(row)
             changed = True
+
     if changed:
         wb.save(LECTEURS_FILE)
 
 
 def get_lecteurs():
-    """Retourne la liste des noms de lecteurs."""
+    """Retourne la liste des noms de lecteurs Combinatoire."""
     _ensure_file()
     wb = openpyxl.load_workbook(LECTEURS_FILE)
     ws = wb.active
@@ -103,7 +109,7 @@ def get_lecteur_position(nom):
 
 
 def add_lecteur(nom, x, y, z, rX, rY, rZ, topZ):
-    """Ajoute ou met à jour un lecteur dans la base de données."""
+    """Ajoute ou met à jour un lecteur Combinatoire dans la base de données."""
     _ensure_file()
     wb = openpyxl.load_workbook(LECTEURS_FILE)
     ws = wb.active
