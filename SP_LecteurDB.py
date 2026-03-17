@@ -1,38 +1,38 @@
 # -*- coding: utf-8 -*-
 """
-Gestion de la base de données des lecteurs Combinatoire (lecteurs.xlsx).
+Gestion de la base de données des lecteurs Soft Pos (sp_lecteurs.xlsx).
 Les points initiaux sont définis directement dans le fichier Excel.
 """
 import os
 import openpyxl
 
-LECTEURS_FILE = "./Parametres/lecteurs.xlsx"
+SP_LECTEURS_FILE = "./Parametres/sp_lecteurs.xlsx"
 HEADERS = ["Nom", "x", "y", "z", "rX", "rY", "rZ", "topZ"]
 
 
 def _ensure_file():
-    """Crée lecteurs.xlsx vide (en-têtes seulement) s'il n'existe pas."""
+    """Crée sp_lecteurs.xlsx vide (en-têtes seulement) s'il n'existe pas."""
     os.makedirs("./Parametres", exist_ok=True)
-    if not os.path.exists(LECTEURS_FILE):
+    if not os.path.exists(SP_LECTEURS_FILE):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Lecteurs"
+        ws.title = "SP_Lecteurs"
         ws.append(HEADERS)
-        wb.save(LECTEURS_FILE)
+        wb.save(SP_LECTEURS_FILE)
 
 
-def get_lecteurs():
-    """Retourne la liste des noms de lecteurs Combinatoire."""
+def get_sp_lecteurs():
+    """Retourne la liste des noms de lecteurs Soft Pos."""
     _ensure_file()
-    wb = openpyxl.load_workbook(LECTEURS_FILE)
+    wb = openpyxl.load_workbook(SP_LECTEURS_FILE)
     ws = wb.active
     return [row[0] for row in ws.iter_rows(min_row=2, values_only=True) if row[0]]
 
 
-def get_lecteur_position(nom):
-    """Retourne un dict {x, y, z, rX, rY, rZ, topZ} pour le lecteur donné."""
+def get_sp_lecteur_position(nom):
+    """Retourne un dict {x, y, z, rX, rY, rZ, topZ} pour le lecteur Soft Pos donné."""
     _ensure_file()
-    wb = openpyxl.load_workbook(LECTEURS_FILE)
+    wb = openpyxl.load_workbook(SP_LECTEURS_FILE)
     ws = wb.active
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row[0] == nom:
@@ -44,17 +44,17 @@ def get_lecteur_position(nom):
     return None
 
 
-def add_lecteur(nom, x, y, z, rX, rY, rZ, topZ):
-    """Ajoute ou met à jour un lecteur dans lecteurs.xlsx."""
+def add_sp_lecteur(nom, x, y, z, rX, rY, rZ, topZ):
+    """Ajoute ou met à jour un lecteur dans sp_lecteurs.xlsx."""
     _ensure_file()
-    wb = openpyxl.load_workbook(LECTEURS_FILE)
+    wb = openpyxl.load_workbook(SP_LECTEURS_FILE)
     ws = wb.active
     vals = [nom, x, y, z, rX, rY, rZ, topZ]
     for row in ws.iter_rows(min_row=2):
         if row[0].value == nom:
             for i, v in enumerate(vals):
                 row[i].value = v
-            wb.save(LECTEURS_FILE)
+            wb.save(SP_LECTEURS_FILE)
             return
     ws.append(vals)
-    wb.save(LECTEURS_FILE)
+    wb.save(SP_LECTEURS_FILE)
