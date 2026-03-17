@@ -35,6 +35,15 @@ class Robot(FFT_signal):
         self.mode = 0
         self.Parametre()
         self.variableconnexion = 0
+        # Valeurs par défaut — remplacées par Position0() / _on_reader_change
+        self.x = 0.0;  self.y = 0.0;  self.z = 0.0
+        self.rX = 0.0; self.rY = 0.0; self.rZ = 0.0
+        self.coeffX = 0.0; self.coeffY = 0.0; self.coeffZ = 0.0
+        self.x2 = 0.0;  self.y2 = 0.0;  self.z2 = 0.0
+        self.rX2 = 0.0; self.rY2 = 0.0; self.rZ2 = 0.0
+        self.coeffX2 = 0.0; self.coeffY2 = 0.0; self.coeffZ2 = 0.0
+        self.position  = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.position2 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     def ConnexionRobot(self):
         try:
@@ -320,12 +329,12 @@ class Robot(FFT_signal):
 
     def ConversionSP(self, position):
         """Conversion Soft Pos : Z monte (positif = au-dessus du téléphone).
-        Positions 0-32  → Groupes A/B/C, rotation 0°  (position1).
-        Positions 33-65 → Groupes D/E/F, rotation 90° (position2).
+        Positions  0-36 → Groupes A/B/C (11+13+13), rotation 0°  (position1).
+        Positions 37-73 → Groupes D/E/F (11+13+13), rotation 90° (position2).
         """
         yCart = float(self.tab_Coordonnee[position][2]) * (math.cos(float(self.tab_Coordonnee[position][3]) * math.pi / 180))
         xCart = float(self.tab_Coordonnee[position][2]) * (-1 * (math.sin(float(self.tab_Coordonnee[position][3]) * math.pi / 180)))
-        if position < 33:  # Groupes A, B, C — rotation 0°
+        if position < 37:  # Groupes A, B, C — rotation 0°
             self.xRobot = 0.001 * yCart + self.x + self.offsetX
             self.yRobot = -0.001 * xCart + self.y + self.offsetY
             self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z + self.offsetZ
