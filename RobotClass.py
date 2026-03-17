@@ -310,6 +310,38 @@ class Robot(FFT_signal):
         else:
             self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z - 0.0002 + self.offsetZ
 
+    def RecupCoordonneeRobotSP(self):
+        """Charge les positions Soft Pos depuis coordonneeRobot_SP.csv."""
+        self.tab_Coordonnee = []
+        fichiercsv = csv.reader(open("./Parametres/coordonneeRobot_SP.csv", "r"))
+        for row in fichiercsv:
+            self.tab_Coordonnee.append(row)
+        self.size = len(self.tab_Coordonnee)
+
+    def ConversionSP(self, position):
+        """Conversion Soft Pos : Z monte (positif = au-dessus du téléphone).
+        Positions 0-32  → Groupes A/B/C, rotation 0°  (position1).
+        Positions 33-65 → Groupes D/E/F, rotation 90° (position2).
+        """
+        yCart = float(self.tab_Coordonnee[position][2]) * (math.cos(float(self.tab_Coordonnee[position][3]) * math.pi / 180))
+        xCart = float(self.tab_Coordonnee[position][2]) * (-1 * (math.sin(float(self.tab_Coordonnee[position][3]) * math.pi / 180)))
+        if position < 33:  # Groupes A, B, C — rotation 0°
+            self.xRobot = 0.001 * yCart + self.x + self.offsetX
+            self.yRobot = -0.001 * xCart + self.y + self.offsetY
+            self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z + self.offsetZ
+            self.rX = self.position[3]
+            self.rY = self.position[4]
+            self.rZ = self.position[5]
+            self.positionTopZ = self.z + 0.2
+        else:  # Groupes D, E, F — rotation 90° droite
+            self.xRobot = 0.001 * yCart + self.x2 + self.offsetX
+            self.yRobot = -0.001 * xCart + self.y2 + self.offsetY
+            self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z2 + self.offsetZ
+            self.rX = self.rX2
+            self.rY = self.rY2
+            self.rZ = self.rZ2
+            self.positionTopZ = self.z2 + 0.2
+
     def MouvementRobotCarte(self, stop_flag, acceleration, temporisation):
         try:
             if stop_flag == True:

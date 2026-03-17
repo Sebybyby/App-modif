@@ -22,8 +22,6 @@ from PopUpCardChoice import PopUp_NbCard
 # Soft Pos sub-pages
 from SP_FormulaireClass import SP_Formulaire
 from SP_ParametreRobotClass import SP_ParametreRobot
-from SP_Lane5000Class import SP_Lane5000
-from SP_Move5000Class import SP_Move5000
 from SP_ReaderClass import SP_Reader
 from SP_FichierConfigLecteur import SP_FichierReader
 from SP_PopUpChoiceClass import SP_PopUpChoice
@@ -116,12 +114,6 @@ if __name__ == "__main__":
         elif menu.enum == 11:
             place = '980x720+26+26'
             menu = SP_ParametreRobot()
-        elif menu.enum == 12:
-            place = '980x720+26+26'
-            menu = SP_Lane5000()
-        elif menu.enum == 13:
-            place = '980x720+26+26'
-            menu = SP_Move5000()
         elif menu.enum == 14:
             place = '980x720+26+26'
             menu = SP_Reader()
