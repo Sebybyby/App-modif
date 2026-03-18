@@ -13,7 +13,7 @@ from PySide6.QtCore import QEventLoop, Qt, QTimer
 class Interface(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Combinatoire test V1.8")
+        self.setWindowTitle("UR5 Control Interface")
         self._central = QWidget()
         self.setCentralWidget(self._central)
         self._grid = QGridLayout(self._central)
