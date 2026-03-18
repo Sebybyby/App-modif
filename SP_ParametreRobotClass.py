@@ -82,18 +82,15 @@ class SP_ParametreRobot(Interface):
         self.rob.ConnexionRobot()
 
     def PositionCentrage(self):
+        """Enregistre la position 0° du robot au centre du téléphone.
+        La rotation 90° (groupes D/E/F) est calculée automatiquement — pas de 2ème calibration.
+        """
         self._show_ok_dialog(
-            "\n   Positionner le robot au centre du téléphone phi=0°   \n", w=440, h=120
+            "\n   Positionner le robot au centre du téléphone phi=0°\n"
+            "   (la rotation 90° sera calculée automatiquement)   \n",
+            w=500, h=130
         )
         try:
             self.rob.Position0(1)
-        except Exception:
-            self._show_ok_dialog("   Vérifier la connexion au robot   \n", w=400, h=120)
-            return
-        self._show_ok_dialog(
-            "\n   Positionner le robot au centre du téléphone phi=90°   \n", w=440, h=120
-        )
-        try:
-            self.rob.Position0(2)
         except Exception:
             self._show_ok_dialog("   Vérifier la connexion au robot   \n", w=400, h=120)
