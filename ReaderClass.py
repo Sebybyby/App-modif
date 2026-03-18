@@ -52,7 +52,6 @@ class Reader(FFT_signal, Interface):
         with open("cartes.json", "r") as f:
             data = json.load(f)
             self.optionListCard = data.get("cartes", [])
-        print("monstre : " + str(self.optionListCard))
         self.texteOffset = "null"
         self.tabGroupeA = []
         self.saveEtatGroupeA = []
@@ -171,6 +170,7 @@ class Reader(FFT_signal, Interface):
                 tab[i].setIcon(QIcon(self.photo_pix))
 
     def ApparitionGroupe(self):
+        self._stopAutoFlag = False
         self._set_play_bouton_gripper()
         self.optGroupe.setCurrentIndex(0)
         self.optGroupe.show()
@@ -291,13 +291,11 @@ class Reader(FFT_signal, Interface):
 
         def Affichage(text):
             if text == "Automatique":
-                print("auto")
                 self.PlayBouton()
                 self.testGroupe()
                 self.GroupeA()
                 self.optGroupe.hide()
             elif text == "Manuel":
-                print("manuel")
                 self.manuelActive = True
                 self.ApparitionGroupe()
 
@@ -687,51 +685,7 @@ class Reader(FFT_signal, Interface):
         except Exception:
             self.PopUpErreurFichier()
 
-    def Pass_Transac_Auto(self, cardloop):
-        gc.collect()
-        try:
-            if self.i >= 0 and self.i < 11:
-                self.tabGroupeA[self.i].setIcon(QIcon(self.photo_pix))
-                self.saveEtatGroupeA[self.i] = 1
-            elif self.i >= 11 and self.i < 24:
-                self.tabGroupeB[self.i - 11].setIcon(QIcon(self.photo_pix))
-                self.saveEtatGroupeB[self.i - 11] = 1
-            elif self.i >= 24 and self.i < 37:
-                self.tabGroupeC[self.i - 24].setIcon(QIcon(self.photo_pix))
-                self.saveEtatGroupeC[self.i - 24] = 1
-            elif self.i >= 37 and self.i < 50:
-                self.tabGroupeD[self.i - 37].setIcon(QIcon(self.photo_pix))
-                self.saveEtatGroupeD[self.i - 37] = 1
-            elif self.i >= 50 and self.i <= 63:
-                self.tabGroupeE[self.i - 50].setIcon(QIcon(self.photo_pix))
-                self.saveEtatGroupeE[self.i - 50] = 1
-            self.fichier.TransactionPass(self.i, cardloop)
-        except Exception:
-            self.PopUpErreurFichier()
-
     def FailTransaction(self, cardloop):
-        gc.collect()
-        try:
-            if self.i >= 0 and self.i < 11:
-                self.tabGroupeA[self.i].setIcon(QIcon(self.photo2_pix))
-                self.saveEtatGroupeA[self.i] = 2
-            elif self.i >= 11 and self.i < 24:
-                self.tabGroupeB[self.i - 11].setIcon(QIcon(self.photo2_pix))
-                self.saveEtatGroupeB[self.i - 11] = 2
-            elif self.i >= 24 and self.i < 37:
-                self.tabGroupeC[self.i - 24].setIcon(QIcon(self.photo2_pix))
-                self.saveEtatGroupeC[self.i - 24] = 2
-            elif self.i >= 37 and self.i < 50:
-                self.tabGroupeD[self.i - 37].setIcon(QIcon(self.photo2_pix))
-                self.saveEtatGroupeD[self.i - 37] = 2
-            elif self.i >= 50 and self.i <= 63:
-                self.tabGroupeE[self.i - 50].setIcon(QIcon(self.photo2_pix))
-                self.saveEtatGroupeE[self.i - 50] = 2
-            self.fichier.TransactionFail(self.i, cardloop)
-        except Exception:
-            self.PopUpErreurFichier()
-
-    def Fail_Transac_Auto(self, cardloop):
         gc.collect()
         try:
             if self.i >= 0 and self.i < 11:
@@ -845,11 +799,9 @@ class Reader(FFT_signal, Interface):
         self.CMDAcceleration = int(self.AccelEntree.text())
         if self.CMDAcceleration > 8:
             self.CMDAcceleration = 8
-        print("valeur de l'accélération':" + self.AccelEntree.text() + " m/s²")
 
     def Temporisation(self):
         self.CMDTemporisation = int(self.TempoEntree.text())
-        print("valeur de temporisation:" + self.TempoEntree.text() + " s")
 
     # --------------------------------------------------------
     # Group A buttons (positions 0-10)
@@ -931,12 +883,10 @@ class Reader(FFT_signal, Interface):
                 self.robotVariable.mode = 2
                 self.i = number
                 if self.robotVariable.variabletest == 2:
-                    print(self.i)
                     self.robotVariable.Conversion(self.i)
                     self.robotVariable.PositionInitiale()
                     self.PopUpMontant()
-                    print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
-                    self.robotVariable.MouvementRobotCarte(self._stopAutoFlag,self.CMDAcceleration, self.CMDTemporisation)
+                    self.robotVariable.MouvementRobotCarte(False, self.CMDAcceleration, self.CMDTemporisation)
                 else:
                     self.robotVariable.Conversion(self.i)
                     self.PopUpMontant()

@@ -68,11 +68,8 @@ class ParametreRobot(Interface):
         self.boutonCentrage = self._yellow_btn("Position 0 : paramétrage manuel", self.PositionCentrage)
         self._grid.addWidget(self.boutonCentrage, 4, 1, 1, 7, Qt.AlignCenter)
 
-        self.boutonCalibration = self._yellow_btn("Calibration", lambda: None)
-        self._grid.addWidget(self.boutonCalibration, 5, 1, 1, 7, Qt.AlignCenter)
-
         self.boutonRajoutLecteur = self._yellow_btn("Rajout Lecteur", self.RajoutLecteur)
-        self._grid.addWidget(self.boutonRajoutLecteur, 6, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.boutonRajoutLecteur, 5, 1, 1, 7, Qt.AlignCenter)
 
     def RetourMenu(self):
         self.windowPlace = self.geometry()

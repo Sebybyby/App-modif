@@ -131,14 +131,13 @@ if __name__ == "__main__":
         gripper.reset()
         time.sleep(0.2)
 
-        # Test doux pour carte
         gripper.grip(vacuum_max_percent=35, vacuum_min_percent=20, timeout_s=3.0)
         time.sleep(0.5)
         gripper.read_status()
 
         time.sleep(2)
 
-        gripper.release_passive(release_delay_s=1.0)
+        gripper.release(release_delay_s=1.0)
         time.sleep(0.5)
         gripper.read_status()
 

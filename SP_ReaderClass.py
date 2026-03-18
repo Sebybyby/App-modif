@@ -93,7 +93,6 @@ class SP_Reader(FFT_signal, Interface):
         with open("cartes.json", "r") as f:
             data = json.load(f)
             self.optionListCard = data.get("cartes", [])
-        print("monstre : " + str(self.optionListCard))
         self.texteOffset = "null"
 
         # Tableaux de boutons et états pour chaque groupe
