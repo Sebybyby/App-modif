@@ -320,12 +320,37 @@ class Robot(FFT_signal):
             self.zRobot = int(self.tab_Coordonnee[position][1]) * 0.001 + self.z - 0.0002 + self.offsetZ
 
     def RecupCoordonneeRobotSP(self):
-        """Charge les positions Soft Pos depuis coordonneeRobot_SP.csv."""
-        self.tab_Coordonnee = []
-        fichiercsv = csv.reader(open("./Parametres/coordonneeRobot_SP.csv", "r"))
-        for row in fichiercsv:
-            self.tab_Coordonnee.append(row)
-        self.size = len(self.tab_Coordonnee)
+        """Génère les positions Soft Pos depuis le CSV Combinatoire (coordonneeRobot.csv).
+        Reprend les groupes A (11 pts), B (13 pts), C (13 pts) du Combinatoire
+        et crée 6 groupes SP avec Z = 0 / 5 / 10 mm au-dessus du téléphone :
+          A (0°,  0mm) B (0°,  5mm) C (0°,  10mm)
+          D (90°, 0mm) E (90°, 5mm) F (90°, 10mm)
+        Fallback sur coordonneeRobot_SP.csv si le Combinatoire est absent.
+        """
+        try:
+            combo = []
+            fichiercsv = csv.reader(open("./Parametres/coordonneeRobot.csv", "r"))
+            for row in fichiercsv:
+                combo.append(row)
+            # Groupes Combinatoire : A=0-10 (11), B=11-23 (13), C=24-36 (13)
+            grp_a = combo[0:11]
+            grp_b = combo[11:24]
+            grp_c = combo[24:37]
+            self.tab_Coordonnee = []
+            for z_mm, positions in [(0, grp_a), (5, grp_b), (10, grp_c),
+                                    (0, grp_a), (5, grp_b), (10, grp_c)]:
+                for row in positions:
+                    # col0=unused, col1=Z_SP(mm), col2=r(mm), col3=theta(deg)
+                    self.tab_Coordonnee.append([row[0], str(z_mm), row[2], row[3]])
+            self.size = len(self.tab_Coordonnee)
+            print(f"RecupCoordonneeRobotSP : {self.size} positions générées depuis coordonneeRobot.csv")
+        except Exception as e:
+            print(f"coordonneeRobot.csv introuvable ({e}) — fallback coordonneeRobot_SP.csv")
+            self.tab_Coordonnee = []
+            fichiercsv = csv.reader(open("./Parametres/coordonneeRobot_SP.csv", "r"))
+            for row in fichiercsv:
+                self.tab_Coordonnee.append(row)
+            self.size = len(self.tab_Coordonnee)
 
     def ConversionSP(self, position):
         """Conversion Soft Pos : Z monte (positif = au-dessus du téléphone).

@@ -226,6 +226,7 @@ class SP_Reader(FFT_signal, Interface):
 
     # ── Apparition / sélection des groupes ──────────────────────────────
     def ApparitionGroupe(self):
+        self._stopAutoFlag = False   # ← reset au passage en mode Manuel
         self._set_play_bouton_gripper()
         self.optGroupe.setCurrentIndex(0)
         self.optGroupe.show()
@@ -584,6 +585,7 @@ class SP_Reader(FFT_signal, Interface):
             self._group_switch_done.set()
 
     def _on_auto_finished(self):
+        self._stopAutoFlag = False   # ← reset après fin du test auto
         try:
             self.optMode.setEnabled(True)
             self.optCard.setEnabled(True)
@@ -806,7 +808,7 @@ class SP_Reader(FFT_signal, Interface):
                     self.robotVariable.PositionInitiale()
                     self.PopUpMontant()
                     print(self.robotVariable.xRobot, self.robotVariable.yRobot, self.robotVariable.zRobot)
-                    self.robotVariable.MouvementRobotCarte(self._stopAutoFlag, self.CMDAcceleration, self.CMDTemporisation)
+                    self.robotVariable.MouvementRobotCarte(False, self.CMDAcceleration, self.CMDTemporisation)
                 else:
                     self.robotVariable.ConversionSP(self.i)
                     self.PopUpMontant()
