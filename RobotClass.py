@@ -44,6 +44,7 @@ class Robot(FFT_signal):
         self.coeffX2 = 0.0; self.coeffY2 = 0.0; self.coeffZ2 = 0.0
         self.position  = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.position2 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.last_grip_success = True   # True par défaut (pas de fausse alarme si gripper absent)
 
     def ConnexionRobot(self):
         try:
@@ -459,6 +460,25 @@ class Robot(FFT_signal):
 
     def PositionInitiale(self):
         self.robot.movel((self.xRobot, self.yRobot, self.positionTopZ, self.rX, self.rY, self.rZ), self.accelerationslow, self.vitesse)
+    def _check_grip_status(self, gripper):
+        """Lit le statut du gripper et met à jour last_grip_success."""
+        try:
+            status = gripper.read_status()
+            if status is None:
+                self.last_grip_success = True   # Erreur lecture → pas de fausse alarme
+                return
+            _, _, gPR, gPO = status
+            # gPO != 0 : objet détecté / vacuum formé
+            self.last_grip_success = (gPO != 0)
+            print(f"Vérification grip : gPR={gPR}, gPO={gPO} → {'OK' if self.last_grip_success else 'ECHEC - carte non grippée'}")
+        except Exception as e:
+            print(f"Erreur vérification grip : {e}")
+            self.last_grip_success = True   # Pas de fausse alarme si lecture impossible
+
+    def VerifierGripper(self):
+        """Retourne True si la dernière récupération de carte a réussi."""
+        return self.last_grip_success
+
     def RecuperationCarte1(self):
         print("je récupère la carte 1")
         self.robot.movel((-0.5746890201638996, -0.2878173389286983,self.positionTopZ , -2.216029543324794,2.2250841429943393,0.016298191448406028),self.accelerationslow ,self.vitesse )
@@ -467,6 +487,7 @@ class Robot(FFT_signal):
         time.sleep(2)
         gripper.grip()
         time.sleep(1)
+        self._check_grip_status(gripper)
         gripper.close()
 
     def RecuperationCarte2(self):
@@ -477,6 +498,7 @@ class Robot(FFT_signal):
         time.sleep(2)
         gripper.grip()
         time.sleep(1)
+        self._check_grip_status(gripper)
         gripper.close()
 
     def RecuperationCarte3(self):
@@ -487,6 +509,7 @@ class Robot(FFT_signal):
         time.sleep(2)
         gripper.grip()
         time.sleep(1)
+        self._check_grip_status(gripper)
         gripper.close()
     def RecuperationCarte(self, numCarte):
         if numCarte == 1:

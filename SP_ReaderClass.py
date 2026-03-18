@@ -487,6 +487,12 @@ class SP_Reader(FFT_signal, Interface):
                 except Exception:
                     pass
 
+                if not self.robotVariable.VerifierGripper():
+                    print(f"Carte {cardloop} non grippée — arrêt automatique")
+                    self._stopAutoFlag = True
+                    self._sig_auto_error.emit()
+                    break
+
                 self._sig_card_text.emit(self.optionListCard[cardloop])
                 print(f"\n DÉBUT Test de la carte {cardloop} \n")
 
