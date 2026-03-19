@@ -68,11 +68,8 @@ class ParametreRobot(Interface):
         self.boutonCentrage = self._yellow_btn("Position 0 : paramétrage manuel", self.PositionCentrage)
         self._grid.addWidget(self.boutonCentrage, 4, 1, 1, 7, Qt.AlignCenter)
 
-        self.boutonCalibration = self._yellow_btn("Calibration", lambda: None)
-        self._grid.addWidget(self.boutonCalibration, 5, 1, 1, 7, Qt.AlignCenter)
-
         self.boutonRajoutLecteur = self._yellow_btn("Rajout Lecteur", self.RajoutLecteur)
-        self._grid.addWidget(self.boutonRajoutLecteur, 6, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.boutonRajoutLecteur, 5, 1, 1, 7, Qt.AlignCenter)
 
     def RetourMenu(self):
         self.windowPlace = self.geometry()
@@ -105,7 +102,7 @@ class ParametreRobot(Interface):
 
         dialog = QDialog(self)
         dialog.setWindowTitle("Rajout Lecteur")
-        dialog.setFixedSize(440, 460)
+        dialog.setFixedSize(460, 530)
         dialog.setStyleSheet("background:%s;" % BG)
 
         layout = QVBoxLayout(dialog)
@@ -115,6 +112,17 @@ class ParametreRobot(Interface):
         title.setStyleSheet("color:#FFFFFF; font-size:18px; font-weight:bold; background:%s;" % BG)
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
+
+        # ── Bouton récupération coordonnées robot ─────────────────────
+        BTN_COORD = (
+            "QPushButton { background:#00AA55; color:#FFFFFF; font-size:12px;"
+            " font-weight:bold; padding:7px 20px; border-radius:6px; }"
+            "QPushButton:hover    { background:#00CC66; }"
+            "QPushButton:pressed  { background:#008844; }"
+        )
+        btn_recup = QPushButton("Récupérer position robot")
+        btn_recup.setStyleSheet(BTN_COORD)
+        layout.addWidget(btn_recup, alignment=Qt.AlignCenter)
 
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight)
@@ -141,6 +149,23 @@ class ParametreRobot(Interface):
             fields[fname] = inp
 
         layout.addLayout(form)
+
+        def on_recup():
+            try:
+                if self.rob.variabletest == 2:
+                    pos = self.rob.robot.getl()
+                else:
+                    pos = self.rob.position   # position de test (démo)
+                coord_keys = ["x", "y", "z", "rX", "rY", "rZ"]
+                for k, v in zip(coord_keys, pos):
+                    fields[k].setText(f"{v:.6f}")
+            except Exception as e:
+                self._show_ok_dialog(
+                    f"   Impossible de lire la position robot :\n   {e}   \n",
+                    w=420, h=130
+                )
+
+        btn_recup.clicked.connect(on_recup)
 
         btn_row = QHBoxLayout()
         btn_ok = QPushButton("Valider")

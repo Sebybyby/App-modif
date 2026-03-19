@@ -93,7 +93,6 @@ class SP_Reader(FFT_signal, Interface):
         with open("cartes.json", "r") as f:
             data = json.load(f)
             self.optionListCard = data.get("cartes", [])
-        print("monstre : " + str(self.optionListCard))
         self.texteOffset = "null"
 
         # Tableaux de boutons et états pour chaque groupe
@@ -486,6 +485,12 @@ class SP_Reader(FFT_signal, Interface):
                     print(f"Carte {cardloop} récupérée")
                 except Exception:
                     pass
+
+                if not self.robotVariable.VerifierGripper():
+                    print(f"Carte {cardloop} non grippée — arrêt automatique")
+                    self._stopAutoFlag = True
+                    self._sig_auto_error.emit()
+                    break
 
                 self._sig_card_text.emit(self.optionListCard[cardloop])
                 print(f"\n DÉBUT Test de la carte {cardloop} \n")
