@@ -965,8 +965,27 @@ class Reader(FFT_signal, Interface):
                 try:
                     self.fichier.GroupeEcriture(self.i)
                     self.robotVariable.Conversion(self.i)
-                    self.robotVariable.MouvementRobotCarte(False, self.CMDAcceleration, self.CMDTemporisation)
-                    time.sleep(3)
+
+                    if self.robotVariable.variabletest == 2:
+                        t1 = threading.Thread(
+                            target=self.robotVariable.MouvementRobotCarte,
+                            args=(False, self.CMDAcceleration, self.CMDTemporisation)
+                        )
+                        t2 = threading.Thread(target=self.Record_son)
+                        self._move_thread = t1
+                        t1.start()
+                        t2.start()
+                        t1.join()
+                        t2.join()
+                        self._move_thread = None
+
+                    Trans = self.lecture_son()
+                    if Trans:
+                        self._sig_pass_auto.emit(self.i, cardloop)
+                    else:
+                        self._sig_fail_auto.emit(self.i, cardloop)
+
+                    time.sleep(4)
                 except Exception as e:
                     self._sig_auto_error.emit()
                     print(e)
