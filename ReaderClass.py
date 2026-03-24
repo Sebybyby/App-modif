@@ -100,6 +100,7 @@ class Reader(FFT_signal, Interface):
         self.currentCardLoop = 0
         self._stopAutoFlag = False
         self._group_switch_done = threading.Event()
+        self._demo_sleep_event = threading.Event()   # interrompt le sleep du mode Démo
         self._sig_pass_auto.connect(self._on_pass_auto)
         self._sig_fail_auto.connect(self._on_fail_auto)
         self._sig_card_text.connect(self._on_card_text)
@@ -396,6 +397,7 @@ class Reader(FFT_signal, Interface):
     def _DeposerCarte(self):
         """Stop automation immediately and return the current card to its slot."""
         self._stopAutoFlag = True
+        self._demo_sleep_event.set()   # interrompt immédiatement le sleep du mode Démo
         card_idx = self.currentCardLoop
         move_thread = self._move_thread
         def do_pose():
@@ -918,6 +920,7 @@ class Reader(FFT_signal, Interface):
     # ------------------------------------------------------------------
     def Mod_demo(self):
         self._stopAutoFlag = False
+        self._demo_sleep_event.clear()   # reset l'event d'interruption
         try:
             self.optMode.setEnabled(False)
             self.optCard.setEnabled(False)
@@ -939,6 +942,11 @@ class Reader(FFT_signal, Interface):
         _DEMO_POS = [(0, 0), (1, 11), (2, 24), (3, 37), (4, 50)]
 
         for cardloop in range(len(self.optionListCard)):
+            if self._stopAutoFlag:
+                break
+
+            self.currentCardLoop = cardloop   # utilisé par _DeposerCarte
+
             # 1. Prendre la carte
             try:
                 self.robotVariable.RecuperationCarte(cardloop + 1)
@@ -957,10 +965,16 @@ class Reader(FFT_signal, Interface):
             # 2. Position 1 de chaque groupe
             error = False
             for group_idx, pos_i in _DEMO_POS:
+                if self._stopAutoFlag:
+                    break
+
                 self.i = pos_i
                 self._group_switch_done.clear()
                 self._sig_show_group.emit(group_idx)
                 self._group_switch_done.wait(timeout=5.0)
+
+                if self._stopAutoFlag:
+                    break
 
                 try:
                     self.fichier.GroupeEcriture(self.i)
@@ -979,23 +993,32 @@ class Reader(FFT_signal, Interface):
                         t2.join()
                         self._move_thread = None
 
+                    if self._stopAutoFlag:
+                        break
+
                     Trans = self.lecture_son()
                     if Trans:
                         self._sig_pass_auto.emit(self.i, cardloop)
                     else:
                         self._sig_fail_auto.emit(self.i, cardloop)
 
-                    time.sleep(4)
+                    # Sleep interruptible : sort immédiatement si _DeposerCarte est appelé
+                    self._demo_sleep_event.wait(timeout=4)
+                    self._demo_sleep_event.clear()
+
+                    if self._stopAutoFlag:
+                        break
+
                 except Exception as e:
                     self._sig_auto_error.emit()
                     print(e)
                     error = True
                     break
 
-            if error:
+            if error or self._stopAutoFlag:
                 break
 
-            # 3. Déposer la carte
+            # 3. Déposer la carte (seulement si pas arrêté manuellement)
             try:
                 self.robotVariable.PoseCarte(cardloop + 1)
                 print(f"Carte {cardloop} déposée — fin démo carte")
