@@ -42,6 +42,7 @@ class Reader(FFT_signal, Interface):
     _sig_fail_auto    = Signal(int, int)
     _sig_card_text    = Signal(str)
     _sig_group_switch = Signal(int)
+    _sig_show_group   = Signal(int)   # 0=A 1=B 2=C 3=D 4=E — utilisé par le mode Démo
     _sig_auto_error   = Signal()
     _sig_auto_finished = Signal()
     _sig_gripper_done       = Signal()
@@ -103,6 +104,7 @@ class Reader(FFT_signal, Interface):
         self._sig_fail_auto.connect(self._on_fail_auto)
         self._sig_card_text.connect(self._on_card_text)
         self._sig_group_switch.connect(self._on_group_switch)
+        self._sig_show_group.connect(self._on_show_group)
         self._sig_auto_error.connect(self.PopUpErreurConnexion)
         self._sig_auto_finished.connect(self._on_auto_finished)
         self._sig_gripper_done.connect(self._on_gripper_done)
@@ -591,6 +593,16 @@ class Reader(FFT_signal, Interface):
         finally:
             self._group_switch_done.set()
 
+    def _on_show_group(self, group_idx):
+        """Affiche le groupe demandé (pour le mode Démo). Exécuté sur le thread principal."""
+        _groups = [self.GroupeA, self.GroupeB, self.GroupeC, self.GroupeD, self.GroupeE]
+        try:
+            self.testGroupe()
+            if 0 <= group_idx < len(_groups):
+                _groups[group_idx]()
+        finally:
+            self._group_switch_done.set()
+
     def _on_auto_finished(self):
         try:
             self.optMode.setEnabled(True)
@@ -902,7 +914,7 @@ class Reader(FFT_signal, Interface):
                     self.PopUpErreurConnexion()
 
     # ------------------------------------------------------------------
-    # Mode Démo
+    # Mode Démo — position 1 de chaque groupe par carte
     # ------------------------------------------------------------------
     def Mod_demo(self):
         self._stopAutoFlag = False
@@ -923,19 +935,33 @@ class Reader(FFT_signal, Interface):
         threading.Thread(target=self._ModeDemoWorker, daemon=True).start()
 
     def _ModeDemoWorker(self):
-        for cardloop in range(0, len(self.optionListCard)):
+        # (group_idx, i) : première position de chaque groupe A/B/C/D/E
+        _DEMO_POS = [(0, 0), (1, 11), (2, 24), (3, 37), (4, 50)]
+
+        for cardloop in range(len(self.optionListCard)):
+            # 1. Prendre la carte
             try:
                 self.robotVariable.RecuperationCarte(cardloop + 1)
                 print(f"Carte {cardloop} récupérée")
             except Exception:
                 pass
+
             if not self.robotVariable.VerifierGripper():
                 print(f"Carte {cardloop} non grippée — arrêt démo")
                 self._sig_auto_error.emit()
                 break
+
             self._sig_card_text.emit(self.optionListCard[cardloop])
-            print(f"\n DÉBUT Test de la carte {cardloop} \n")
-            for self.i in range(0, self.robotVariable.size, 10):
+            print(f"\n DÉBUT Démo carte {cardloop} \n")
+
+            # 2. Position 1 de chaque groupe
+            error = False
+            for group_idx, pos_i in _DEMO_POS:
+                self.i = pos_i
+                self._group_switch_done.clear()
+                self._sig_show_group.emit(group_idx)
+                self._group_switch_done.wait(timeout=5.0)
+
                 try:
                     self.fichier.GroupeEcriture(self.i)
                     self.robotVariable.Conversion(self.i)
@@ -944,13 +970,20 @@ class Reader(FFT_signal, Interface):
                 except Exception as e:
                     self._sig_auto_error.emit()
                     print(e)
+                    error = True
                     break
-                try:
-                    self.robotVariable.PoseCarte(cardloop + 1)
-                    print(f"FIN Test de la carte {cardloop}")
-                except Exception as e:
-                    self._sig_auto_error.emit()
-                    print(e)
-                    break
+
+            if error:
+                break
+
+            # 3. Déposer la carte
+            try:
+                self.robotVariable.PoseCarte(cardloop + 1)
+                print(f"Carte {cardloop} déposée — fin démo carte")
+            except Exception as e:
+                self._sig_auto_error.emit()
+                print(e)
+                break
+
         print("DÉMO TERMINÉE")
         self._sig_auto_finished.emit()
