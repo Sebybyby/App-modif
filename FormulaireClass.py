@@ -16,7 +16,7 @@ from FichierClass import Fichier
 import gc
 
 
-BG = "#0054A4"
+BG = "#1B3A6B"
 FRAME_STYLE = f"QFrame {{ background:{BG}; border:2px solid #FFFFFF; border-radius:8px; }}"
 LABEL_STYLE = f"color:#FFFFFF; font-size:16px; font-weight:bold; background:{BG}; border:none;"
 INPUT_STYLE = "color:#000000; font-size:13px; background:#FFFFFF; border-radius:4px; padding:4px;"
@@ -37,6 +37,8 @@ class Formulaire(Interface):
         self.fichier = Fichier.Instance()
 
         # Grille : 5 lignes x 9 colonnes
+        self.setStyleSheet(f"background:{BG};")
+
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7), weight=1)
         self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8), weight=1)
 
@@ -46,7 +48,7 @@ class Formulaire(Interface):
     def _build_header(self):
         # Retour haut gauche
         self.retourBouton = QPushButton("Retour")
-        self.retourBouton.setFixedSize(130, 56)
+        self.retourBouton.setFixedSize(130, 46)
         self.retourBouton.setStyleSheet(
             "QPushButton { background:#FFFF00; color:#000000; font-size:13px;"
             " font-weight:bold; padding:8px 20px; border-radius:6px; }"

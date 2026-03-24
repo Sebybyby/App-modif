@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Choix du nombre de cartes — menu déroulant + bouton rond central.
-Même principe visuel que le menu Soft Pos / Combinatoire.
+Choix du nombre de cartes — Combinatoire.
+Même UI que SP_PopUpChoiceClass, seul le titre et la navigation changent.
 """
-from PySide6.QtWidgets import QLabel, QPushButton, QComboBox, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QLabel, QPushButton, QCheckBox, QWidget, QVBoxLayout
 from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 
@@ -12,6 +12,24 @@ from InterfaceAfficheClass import InterfaceAffiche
 import json
 
 BG = "#1B3A6B"
+
+CB_STYLE = (
+    "QCheckBox {{ color:#FFFFFF; background:{bg}; font-size:15px; padding:6px; spacing:10px; }}"
+    "QCheckBox::indicator {{"
+    "  width:22px; height:22px; border-radius:4px;"
+    "  border:2px solid #8AAAD4; background:#FFFFFF;"
+    "}}"
+    "QCheckBox::indicator:checked {{"
+    "  background:#FFFF00; border:3px solid #FFFFFF;"
+    "}}"
+    "QCheckBox::indicator:unchecked:hover {{"
+    "  border:2px solid #FFE033;"
+    "}}"
+    "QCheckBox:disabled {{ color:#AAAAAA; }}"
+    "QCheckBox::indicator:disabled {{"
+    "  background:#FFFF00; border:3px solid #AAAAAA;"
+    "}}"
+).format(bg=BG)
 
 
 class PopUp_NbCard(Interface):
@@ -25,7 +43,6 @@ class PopUp_NbCard(Interface):
 
         self.setStyleSheet(f"background:{BG};")
 
-        # Même grille que Combinatoire : 4 lignes x 5 colonnes
         self.grid_rowconfigure((0, 1, 2, 3), weight=1)
         self.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
@@ -49,61 +66,54 @@ class PopUp_NbCard(Interface):
         titre.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         titre.setStyleSheet("color:#FFFFFF; background:transparent; border:none;")
         titre.setFont(QFont("Helvetica", 28, QFont.Bold))
-        self._grid.addWidget(titre, 0, 1, 1, 4)
+        self._grid.addWidget(titre, 0, 0, 1, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     def _build_center(self):
-        """Menu déroulant nb cartes + bouton rond Valider centré."""
+        """Cases à cocher cartes + bouton rond Valider centré."""
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet(f"background:{BG};")
         layout = QVBoxLayout(container)
         layout.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        layout.setSpacing(18)
+        layout.setSpacing(16)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Menu déroulant
-        self.combo = QComboBox()
-        self.combo.addItems(["1 Carte", "2 Cartes", "3 Cartes"])
-        self.combo.setCurrentIndex(1)   # 2 Cartes par défaut
-        self.combo.setFixedWidth(210)
-        self.combo.setStyleSheet("""
-            QComboBox {
-                background: #FFFF00;
-                color: #000000;
-                font-size: 14px;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 8px 12px;
-                border: none;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 24px;
-            }
-            QComboBox::down-arrow {
-                width: 12px;
-                height: 12px;
-            }
-            QComboBox QAbstractItemView {
-                background: #FFFF00;
-                color: #000000;
-                selection-background-color: #FFE033;
-                font-size: 14px;
-                font-weight: bold;
-                border: 1px solid #CCBB00;
-            }
-        """)
-        layout.addWidget(self.combo, 0, Qt.AlignHCenter)
+        # Label
+        lbl = QLabel("Nombre de cartes à tester")
+        lbl.setStyleSheet(
+            f"color:#FFFFFF; font-size:17px; font-weight:bold; background:{BG};"
+        )
+        lbl.setAlignment(Qt.AlignCenter)
+        layout.addWidget(lbl, 0, Qt.AlignHCenter)
 
-        # Bouton rond central Valider
+        # Cases à cocher
+        self.cb1 = QCheckBox("1 Carte")
+        self.cb1.setStyleSheet(CB_STYLE)
+        self.cb1.setChecked(True)
+        self.cb1.setEnabled(False)   # toujours incluse
+        layout.addWidget(self.cb1, 0, Qt.AlignHCenter)
+
+        self.cb2 = QCheckBox("2 Cartes")
+        self.cb2.setStyleSheet(CB_STYLE)
+        self.cb2.setChecked(True)    # défaut
+        self.cb2.stateChanged.connect(self._on_cb2_changed)
+        layout.addWidget(self.cb2, 0, Qt.AlignHCenter)
+
+        self.cb3 = QCheckBox("3 Cartes")
+        self.cb3.setStyleSheet(CB_STYLE)
+        self.cb3.setChecked(False)
+        self.cb3.stateChanged.connect(self._on_cb3_changed)
+        layout.addWidget(self.cb3, 0, Qt.AlignHCenter)
+
+        # Bouton rond Valider
         btn = QPushButton("Valider")
-        btn.setFixedSize(200, 200)
+        btn.setFixedSize(160, 160)
         btn.setStyleSheet("""
             QPushButton {
                 background: #FFFF00;
                 color: #000000;
                 border: none;
-                border-radius: 100px;
-                font-size: 18px;
+                border-radius: 80px;
+                font-size: 16px;
                 font-weight: 700;
             }
             QPushButton:hover   { background: #FFE033; }
@@ -115,17 +125,25 @@ class PopUp_NbCard(Interface):
         self._grid.addWidget(container, 1, 0, 2, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     # ------------------------------------------------------------------
+    def _on_cb2_changed(self, state):
+        """Décocher cb2 décoche automatiquement cb3."""
+        if not state:
+            self.cb3.setChecked(False)
+
+    def _on_cb3_changed(self, state):
+        """Cocher cb3 coche automatiquement cb2."""
+        if state:
+            self.cb2.setChecked(True)
+
     def _valider(self):
-        idx = self.combo.currentIndex()
         self.compteur = ["Card 1"]
-        if idx >= 1:
+        if self.cb2.isChecked():
             self.compteur.append("Card 2")
-        if idx >= 2:
+        if self.cb3.isChecked():
             self.compteur.append("Card 3")
 
-        print(self.compteur)
         data = {"cartes": self.compteur}
-        with open("cartes.json", "w") as f:
+        with open("cartes.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
 
         self.windowPlace = self.geometry()
