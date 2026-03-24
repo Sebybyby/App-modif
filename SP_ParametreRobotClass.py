@@ -57,7 +57,7 @@ class SP_ParametreRobot(Interface):
         titre = QLabel("Paramétrage du Robot — Soft Pos")
         titre.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         titre.setStyleSheet("color:#FFFFFF; background:transparent; border:none;")
-        titre.setFont(QFont("Helvetica", 22, QFont.Bold))
+        titre.setFont(QFont("Helvetica", 28, QFont.Bold))
         self._grid.addWidget(titre, 0, 0, 1, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     def _btn(self, text, callback):

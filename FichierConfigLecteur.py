@@ -12,18 +12,21 @@ import os
 import gc
 
 
+BG = "#1B3A6B"
+
+
 class FichierReader(fftsignallecteur, Interface):
     def __init__(self):
         Interface.__init__(self)
+        self.setStyleSheet(f"background:{BG};")
         self.NouvellePageLect()
         self.enum = InterfaceAffiche(6)
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
         self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8), weight=1)
 
     def NouvellePageLect(self):
-        BG = "#0054A4"
         BTN = ("QPushButton { background:#FFFF00; color:#000000; font-size:13px;"
-               " font-weight:bold; padding:12px 40px; border-radius:8px; }"
+               " font-weight:bold; padding:16px 40px; border-radius:8px; }"
                "QPushButton:hover    { background:#FFE033; }"
                "QPushButton:pressed  { background:#CCBB00; }")
 

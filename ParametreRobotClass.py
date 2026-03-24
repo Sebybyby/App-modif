@@ -16,6 +16,8 @@ from InterfaceAfficheClass import InterfaceAffiche
 from RobotClass import Robot
 import gc
 
+BG = "#1B3A6B"
+
 
 class ParametreRobot(Interface):
     def __init__(self):
@@ -24,6 +26,7 @@ class ParametreRobot(Interface):
         self.windowPlace = []
         self.rob = Robot.Instance()
 
+        self.setStyleSheet(f"background:{BG};")
         self.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
         self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8), weight=1)
 
@@ -51,10 +54,10 @@ class ParametreRobot(Interface):
 
     def _yellow_btn(self, text, callback):
         btn = QPushButton(text)
-        btn.setFixedHeight(72)
+        btn.setFixedHeight(64)
         btn.setStyleSheet(
-            "QPushButton { color:#000000; background:#FFFF00; font-size:13px;"
-            " font-weight:bold; padding:12px 50px; border-radius:8px; }"
+            "QPushButton { color:#000000; background:#FFFF00; font-size:14px;"
+            " font-weight:bold; padding:16px 50px; border-radius:8px; }"
             "QPushButton:hover    { background:#FFE033; }"
             "QPushButton:pressed  { background:#CCBB00; }"
         )
@@ -90,7 +93,6 @@ class ParametreRobot(Interface):
     def RajoutLecteur(self):
         from LecteurDB import add_lecteur
 
-        BG = "#0054A4"
         LBL = "color:#FFFFFF; font-size:13px; background:%s; border:none;" % BG
         INP = "color:#000000; background:#FFFFFF; font-size:13px; border-radius:4px; padding:4px;"
         BTN = (
