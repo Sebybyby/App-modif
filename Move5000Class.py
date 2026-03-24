@@ -40,4 +40,4 @@ class Move5000(Reader):
             "QPushButton:pressed { background:#660099; }"
         )
         self.demoBouton.clicked.connect(self.Mod_demo)
-        self._grid.addWidget(self.demoBouton, 0, 0, 1, 2, Qt.AlignLeft | Qt.AlignVCenter)
+        self._grid.addWidget(self.demoBouton, 0, 7, 1, 2, Qt.AlignRight | Qt.AlignVCenter)
