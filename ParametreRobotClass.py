@@ -27,8 +27,8 @@ class ParametreRobot(Interface):
         self.rob = Robot.Instance()
 
         self.setStyleSheet(f"background:{BG};")
-        self.grid_rowconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8, 9), weight=1)
-        self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6, 7, 8), weight=1)
+        self.grid_rowconfigure((0, 1, 2, 3), weight=1)
+        self.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         self._build_header()
         self._build_buttons()
@@ -36,6 +36,7 @@ class ParametreRobot(Interface):
     def _build_header(self):
         # Bouton Retour en haut à gauche
         self.retourBouton = QPushButton("Retour")
+        self.retourBouton.setFixedSize(130, 46)
         self.retourBouton.setStyleSheet(
             "QPushButton { background:#FFFF00; color:#000000; font-size:13px;"
             " font-weight:bold; padding:8px 20px; border-radius:6px; }"
@@ -50,7 +51,7 @@ class ParametreRobot(Interface):
         self.titre.setStyleSheet("color:#FFFFFF; background:transparent; border:none;")
         self.titre.setFont(QFont("Helvetica", 28, QFont.Bold))
         self.titre.setAlignment(Qt.AlignCenter)
-        self._grid.addWidget(self.titre, 0, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.titre, 0, 0, 1, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     def _yellow_btn(self, text, callback):
         btn = QPushButton(text)
@@ -66,13 +67,13 @@ class ParametreRobot(Interface):
 
     def _build_buttons(self):
         self.boutonConnexion = self._yellow_btn("Connexion au robot", self.ConnexionRobotButton)
-        self._grid.addWidget(self.boutonConnexion, 2, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.boutonConnexion, 1, 0, 1, 5, Qt.AlignCenter)
 
         self.boutonCentrage = self._yellow_btn("Position 0 : paramétrage manuel", self.PositionCentrage)
-        self._grid.addWidget(self.boutonCentrage, 4, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.boutonCentrage, 2, 0, 1, 5, Qt.AlignCenter)
 
         self.boutonRajoutLecteur = self._yellow_btn("Rajout Lecteur", self.RajoutLecteur)
-        self._grid.addWidget(self.boutonRajoutLecteur, 5, 1, 1, 7, Qt.AlignCenter)
+        self._grid.addWidget(self.boutonRajoutLecteur, 3, 0, 1, 5, Qt.AlignCenter)
 
     def RetourMenu(self):
         self.windowPlace = self.geometry()

@@ -3,7 +3,10 @@
 Choix du nombre de cartes — Combinatoire.
 Même UI que SP_PopUpChoiceClass, seul le titre et la navigation changent.
 """
-from PySide6.QtWidgets import QLabel, QPushButton, QCheckBox, QWidget, QVBoxLayout
+from PySide6.QtWidgets import (
+    QLabel, QPushButton, QWidget, QVBoxLayout,
+    QRadioButton, QButtonGroup
+)
 from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 
@@ -13,21 +16,17 @@ import json
 
 BG = "#1B3A6B"
 
-CB_STYLE = (
-    "QCheckBox {{ color:#FFFFFF; background:{bg}; font-size:15px; padding:6px; spacing:10px; }}"
-    "QCheckBox::indicator {{"
-    "  width:22px; height:22px; border-radius:4px;"
+RB_STYLE = (
+    "QRadioButton {{ color:#FFFFFF; background:{bg}; font-size:15px; padding:6px; spacing:10px; }}"
+    "QRadioButton::indicator {{"
+    "  width:22px; height:22px; border-radius:11px;"
     "  border:2px solid #8AAAD4; background:#FFFFFF;"
     "}}"
-    "QCheckBox::indicator:checked {{"
+    "QRadioButton::indicator:checked {{"
     "  background:#FFFF00; border:3px solid #FFFFFF;"
     "}}"
-    "QCheckBox::indicator:unchecked:hover {{"
+    "QRadioButton::indicator:unchecked:hover {{"
     "  border:2px solid #FFE033;"
-    "}}"
-    "QCheckBox:disabled {{ color:#AAAAAA; }}"
-    "QCheckBox::indicator:disabled {{"
-    "  background:#FFFF00; border:3px solid #AAAAAA;"
     "}}"
 ).format(bg=BG)
 
@@ -69,7 +68,7 @@ class PopUp_NbCard(Interface):
         self._grid.addWidget(titre, 0, 0, 1, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     def _build_center(self):
-        """Cases à cocher cartes + bouton rond Valider centré."""
+        """Boutons radio cartes + bouton rond Valider centré."""
         container = QWidget()
         container.setStyleSheet(f"background:{BG};")
         layout = QVBoxLayout(container)
@@ -85,24 +84,24 @@ class PopUp_NbCard(Interface):
         lbl.setAlignment(Qt.AlignCenter)
         layout.addWidget(lbl, 0, Qt.AlignHCenter)
 
-        # Cases à cocher
-        self.cb1 = QCheckBox("1 Carte")
-        self.cb1.setStyleSheet(CB_STYLE)
-        self.cb1.setChecked(True)
-        self.cb1.setEnabled(False)   # toujours incluse
-        layout.addWidget(self.cb1, 0, Qt.AlignHCenter)
+        # Boutons radio
+        self._btn_group = QButtonGroup(self)
 
-        self.cb2 = QCheckBox("2 Cartes")
-        self.cb2.setStyleSheet(CB_STYLE)
-        self.cb2.setChecked(True)    # défaut
-        self.cb2.stateChanged.connect(self._on_cb2_changed)
-        layout.addWidget(self.cb2, 0, Qt.AlignHCenter)
+        self.rb1 = QRadioButton("1 Carte")
+        self.rb1.setStyleSheet(RB_STYLE)
+        self._btn_group.addButton(self.rb1)
+        layout.addWidget(self.rb1, 0, Qt.AlignHCenter)
 
-        self.cb3 = QCheckBox("3 Cartes")
-        self.cb3.setStyleSheet(CB_STYLE)
-        self.cb3.setChecked(False)
-        self.cb3.stateChanged.connect(self._on_cb3_changed)
-        layout.addWidget(self.cb3, 0, Qt.AlignHCenter)
+        self.rb2 = QRadioButton("2 Cartes")
+        self.rb2.setStyleSheet(RB_STYLE)
+        self.rb2.setChecked(True)   # défaut
+        self._btn_group.addButton(self.rb2)
+        layout.addWidget(self.rb2, 0, Qt.AlignHCenter)
+
+        self.rb3 = QRadioButton("3 Cartes")
+        self.rb3.setStyleSheet(RB_STYLE)
+        self._btn_group.addButton(self.rb3)
+        layout.addWidget(self.rb3, 0, Qt.AlignHCenter)
 
         # Bouton rond Valider
         btn = QPushButton("Valider")
@@ -125,21 +124,11 @@ class PopUp_NbCard(Interface):
         self._grid.addWidget(container, 1, 0, 2, 5, Qt.AlignHCenter | Qt.AlignVCenter)
 
     # ------------------------------------------------------------------
-    def _on_cb2_changed(self, state):
-        """Décocher cb2 décoche automatiquement cb3."""
-        if not state:
-            self.cb3.setChecked(False)
-
-    def _on_cb3_changed(self, state):
-        """Cocher cb3 coche automatiquement cb2."""
-        if state:
-            self.cb2.setChecked(True)
-
     def _valider(self):
         self.compteur = ["Card 1"]
-        if self.cb2.isChecked():
+        if self.rb2.isChecked() or self.rb3.isChecked():
             self.compteur.append("Card 2")
-        if self.cb3.isChecked():
+        if self.rb3.isChecked():
             self.compteur.append("Card 3")
 
         data = {"cartes": self.compteur}

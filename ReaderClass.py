@@ -600,6 +600,10 @@ class Reader(FFT_signal, Interface):
             self.deposerCarteBtn.hide()
         except Exception:
             pass
+        try:
+            self.demoBouton.setEnabled(True)
+        except AttributeError:
+            pass
 
     def Intercepte(self):
         reply = QMessageBox.question(
@@ -896,3 +900,57 @@ class Reader(FFT_signal, Interface):
             except Exception as e:
                     print(f"Erreur en mode Manuel: {e}")
                     self.PopUpErreurConnexion()
+
+    # ------------------------------------------------------------------
+    # Mode Démo
+    # ------------------------------------------------------------------
+    def Mod_demo(self):
+        self._stopAutoFlag = False
+        try:
+            self.optMode.setEnabled(False)
+            self.optCard.setEnabled(False)
+            self.optGroupe.setEnabled(False)
+            self.demoBouton.setEnabled(False)
+            self.playBouton.hide()
+            self.deposerCarteBtn.show()
+        except Exception:
+            pass
+        self.testGroupe()
+        self.GroupeA()
+        self.robotVariable.mode = 1
+        self.robotVariable.RecupCoordonneeRobot()
+        self.i = 0
+        threading.Thread(target=self._ModeDemoWorker, daemon=True).start()
+
+    def _ModeDemoWorker(self):
+        for cardloop in range(0, len(self.optionListCard)):
+            try:
+                self.robotVariable.RecuperationCarte(cardloop + 1)
+                print(f"Carte {cardloop} récupérée")
+            except Exception:
+                pass
+            if not self.robotVariable.VerifierGripper():
+                print(f"Carte {cardloop} non grippée — arrêt démo")
+                self._sig_auto_error.emit()
+                break
+            self._sig_card_text.emit(self.optionListCard[cardloop])
+            print(f"\n DÉBUT Test de la carte {cardloop} \n")
+            for self.i in range(0, self.robotVariable.size, 10):
+                try:
+                    self.fichier.GroupeEcriture(self.i)
+                    self.robotVariable.Conversion(self.i)
+                    self.robotVariable.MouvementRobotCarte(False, self.CMDAcceleration, self.CMDTemporisation)
+                    time.sleep(3)
+                except Exception as e:
+                    self._sig_auto_error.emit()
+                    print(e)
+                    break
+                try:
+                    self.robotVariable.PoseCarte(cardloop + 1)
+                    print(f"FIN Test de la carte {cardloop}")
+                except Exception as e:
+                    self._sig_auto_error.emit()
+                    print(e)
+                    break
+        print("DÉMO TERMINÉE")
+        self._sig_auto_finished.emit()
